@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { engine } from "./battleEngine";
+import { HEROES, engine } from "./battleEngine";
 import { HEX_SIZE, TILES, Terrain, Tile } from "./terrain";
 
 const COLOR: Record<Terrain, string> = {
@@ -65,8 +65,7 @@ export function Minimap({ selected, scale = 1, tick = 0 }: { selected: Tile | nu
       const [c, r] = EDOT[e.kind];
       dot(e.x, e.z, c, r * scale);
     }
-    dot(engine.pos.warden.x, engine.pos.warden.z, "#34e0c0", 3 * scale);
-    dot(engine.pos.sentinel.x, engine.pos.sentinel.z, "#ff9a3c", 3 * scale);
+    for (const h of HEROES) dot(engine.pos[h].x, engine.pos[h].z, h === "warden" ? "#34e0c0" : "#ff9a3c", 3.5 * scale);
   }, [selected, scale, tick, W, H]);
 
   return (

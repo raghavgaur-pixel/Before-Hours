@@ -1,7 +1,7 @@
 "use client";
 
 import { useFrame, useThree } from "@react-three/fiber";
-import { busy, engine, liveEnemies, type HeroId } from "./battleEngine";
+import { HEROES, busy, engine, liveEnemies, type HeroId } from "./battleEngine";
 import { groundAt, isWalkable } from "./terrain";
 
 /** Shared input / camera state for the third-person controls. */
@@ -106,7 +106,9 @@ export function PlayerDriver() {
     me.yaw = lerpAngle(me.yaw, want, dt * (rolling ? 25 : 12));
 
     // The other hero stands guard facing the nearest enemy.
-    const other: HeroId = hero === "warden" ? "sentinel" : "warden";
+    const other = HEROES.find((h) => h !== hero);
+    me.y = groundAt(me.x, me.z);
+    if (!other) return;
     const o = engine.pos[other];
     o.speed = 0;
     const near = liveEnemies().sort(

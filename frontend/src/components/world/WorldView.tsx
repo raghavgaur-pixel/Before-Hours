@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   BOSS_LEVEL,
+  HEROES,
   GESTURES,
   HERO_NAME,
   ITEM_DEFS,
@@ -35,7 +36,6 @@ import {
   startRoll,
   switchTarget,
   toggleAuto,
-  toggleHero,
   toggleLock,
   toggleTwoHand,
   useBattle,
@@ -110,7 +110,6 @@ const CONTROLS: [string, string][] = [
   ["Switch weapon", "1 · 2 · 3 · 4"],
   ["Swap to next weapon", "Z"],
   ["Skins", "J"],
-  ["Swap hero", "X"],
   ["Auto-battle · Overview camera", "T · O"],
 ];
 
@@ -467,7 +466,6 @@ export function WorldView() {
       else if (k === "f") interact();
       else if (k === "r") consumeItem();
       else if (k === "v") switchTarget();
-      else if (k === "x") toggleHero();
       else if (k === "t") toggleAuto();
       else if (k === "z") cycleWeapon(e.shiftKey ? -1 : 1);
       else if (k === "[" || k === "pageup") cycleWeapon(-1);
@@ -655,8 +653,9 @@ export function WorldView() {
             </p>
             <p className="mt-1 text-[10px] text-muted">{foesAlive} {foesAlive === 1 ? "foe" : "foes"} on the field</p>
             <div className="mt-2 flex flex-col gap-1.5">
-              <HeroCard id="warden" />
-              <HeroCard id="sentinel" />
+              {HEROES.map((h) => (
+                <HeroCard key={h} id={h} />
+              ))}
             </div>
             <ul className="mt-2 min-h-[4.5rem] space-y-0.5 text-[10px] leading-tight text-muted">
               {engine.log.map((l, i) => (
@@ -755,8 +754,8 @@ export function WorldView() {
 
         {panel === "status" && (
           <Modal title="Character Status" onClose={() => setPanel(null)} wide>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(["warden", "sentinel"] as HeroId[]).map((h) => (
+            <div className="grid gap-3">
+              {HEROES.map((h) => (
                 <div key={h} className={`rounded border p-3 text-xs ${h === hero ? HERO_COLOR[h].border : "border-white/10"}`}>
                   <p className={`font-medium ${HERO_COLOR[h].text}`}>{HERO_NAME[h]}</p>
                   <div className="mt-2 space-y-1.5">
@@ -842,7 +841,7 @@ export function WorldView() {
         {panel === "skins" && (
           <Modal title="Skins" onClose={() => setPanel(null)} wide>
             <div className="space-y-4">
-              {(["warden", "sentinel"] as HeroId[]).map((h) => (
+              {HEROES.map((h) => (
                 <div key={h}>
                   <p className={`mb-1.5 text-xs uppercase tracking-widest ${HERO_COLOR[h].text}`}>{HERO_NAME[h]}</p>
                   <ul className="grid gap-2 sm:grid-cols-3">

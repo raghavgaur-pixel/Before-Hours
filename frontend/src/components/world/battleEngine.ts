@@ -96,6 +96,10 @@ export type HeroPos = { x: number; z: number; y: number; yaw: number; speed: num
 
 const MAX_HP = { warden: 120, sentinel: 160 };
 
+/** The playable roster. Only the main character, the Stoneguard sentinel, is in the game. */
+export const HEROES: HeroId[] = ["sentinel"];
+export const MAIN_HERO: HeroId = HEROES[0];
+
 /** Where husks rise: a loose ring around the graveyard. */
 export const zombieSpawn = (i: number): [number, number] => [
   GRAVEYARD.x + Math.cos(i * 1.05 + 0.4) * 1.5,
@@ -149,7 +153,7 @@ const yawTo = (ax: number, az: number, bx: number, bz: number) => Math.atan2(bx 
 export const engine = {
   now: 0,
   version: 0,
-  selected: "warden" as HeroId,
+  selected: "sentinel" as HeroId,
   weapon: { warden: "blade", sentinel: "hammer" } as Record<HeroId, WeaponId>,
   hp: { warden: MAX_HP.warden, sentinel: MAX_HP.sentinel } as Record<HeroId, number>,
   maxHp: { warden: MAX_HP.warden, sentinel: MAX_HP.sentinel } as Record<HeroId, number>,
@@ -183,7 +187,7 @@ export const engine = {
   /** Recent deaths, for death effects: where, what, and when. */
   deaths: [] as { t: number; x: number; z: number; kind: string; big: boolean }[],
   /** Chosen look per hero (see skins.ts). */
-  skin: { warden: "warden-classic", sentinel: "sentinel-classic" } as Record<HeroId, string>,
+  skin: { warden: "warden-classic", sentinel: "sentinel-stoneguard" } as Record<HeroId, string>,
   /** When each hero last changed weapon, to drive the swap flourish. */
   swapAt: { warden: -9, sentinel: -9 } as Record<HeroId, number>,
   victoryUntil: 0,
@@ -306,7 +310,7 @@ function impact(target: Actor, color: string, power: number) {
 // ---------------------------------------------------------------- targeting
 
 export const liveEnemies = () => Object.values(engine.enemies).filter((e) => e.alive);
-export const aliveHeroes = () => (["warden", "sentinel"] as HeroId[]).filter((h) => !engine.down[h]);
+export const aliveHeroes = () => HEROES.filter((h) => !engine.down[h]);
 
 const stageActive = (e: Enemy) => (e.kind === "zombie" || e.kind === "villain") && stageFor(engine.prog.level) === e.kind;
 
@@ -483,7 +487,7 @@ export function resetProgress() {
   engine.down.warden = false;
   engine.down.sentinel = false;
   engine.gameOver = false;
-  engine.selected = "warden";
+  engine.selected = MAIN_HERO;
   applyStage();
   pr.banner = null;
   say("Progress reset");
@@ -602,8 +606,8 @@ function heroDown(hero: HeroId) {
   engine.shake = 1;
   pushDeath(engine.pos[hero].x, engine.pos[hero].z, "hero");
   say(`${HERO_NAME[hero]} has fallen!`);
-  const other: HeroId = hero === "warden" ? "sentinel" : "warden";
-  if (engine.down[other]) {
+  const other = HEROES.find((h) => h !== hero && !engine.down[h]);
+  if (!other) {
     engine.gameOver = true;
     engine.auto = false;
     say("YOU DIED");
@@ -626,7 +630,7 @@ export function retryAfterDeath() {
   engine.pos.sentinel.z = SENTINEL_XZ[1];
   engine.p.stamina = engine.p.maxStamina;
   engine.gameOver = false;
-  engine.selected = "warden";
+  engine.selected = MAIN_HERO;
   if (engine.prog.boss === "arrived") {
     const b = engine.enemies.boss;
     b.hp = b.maxHp;
@@ -819,7 +823,7 @@ export const gestureProgress = () => {
 // ---------------------------------------------------------------- selection
 
 export function selectHero(h: HeroId) {
-  if (engine.down[h]) return;
+  if (engine.down[h] || !HEROES.includes(h)) return;
   if (engine.selected !== h) {
     engine.selected = h;
     engine.p.lock = false;
