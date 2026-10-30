@@ -75,9 +75,16 @@ function Foe({ id, index, variant }: { id: string; index: number; variant: Varia
         s.deadT = 0;
       }
       s.deadT += dt;
-      b.rotation.x = -Math.min(1.5, s.deadT * 3);
-      b.position.y = -Math.min(0.12, s.deadT * 0.1);
-      g.visible = s.deadT < 4;
+      // Staggers back, arms flung wide, lies still, then crumbles away.
+      const fall = Math.min(1, s.deadT / 0.45);
+      const ease = 1 - Math.pow(1 - fall, 3);
+      b.rotation.set(-1.55 * ease, Math.sin(s.deadT * 6) * 0.2 * (1 - fall), 0);
+      b.position.set(0, -0.1 * ease, -0.18 * ease);
+      if (armL.current) armL.current.rotation.x = -2.6 * ease;
+      if (armR.current) armR.current.rotation.x = -2.6 * ease;
+      const shrink = Math.min(1, Math.max(0, (s.deadT - 1.6) / 1.0));
+      g.scale.setScalar(L.scale * (1 - shrink * shrink));
+      g.visible = s.deadT < 2.7;
       g.position.set(e.x, groundAt(e.x, e.z), e.z);
       return;
     }
@@ -87,7 +94,8 @@ function Foe({ id, index, variant }: { id: string; index: number; variant: Varia
       e.x = sx;
       e.z = sz;
       g.visible = true;
-      b.position.y = 0;
+      g.scale.setScalar(L.scale);
+      b.position.set(0, 0, 0);
       b.rotation.x = 0;
     }
 

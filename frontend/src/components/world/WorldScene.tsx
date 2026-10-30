@@ -15,6 +15,7 @@ import { FlaskThrow } from "./effectModels";
 import { Effect } from "./effects";
 import { Monster } from "./Monster";
 import { Waterfall } from "./Waterfall";
+import { DeathFx } from "./DeathFx";
 import { LevelUpFx } from "./Progression";
 import { Zombies } from "./Zombies";
 import { engine, tick } from "./battleEngine";
@@ -361,6 +362,7 @@ export function WorldScene({
 
       <Zombies />
       <LevelUpFx />
+      <DeathFx />
       <Waterfall />
       <AshenWarden />
       <IronSentinel />

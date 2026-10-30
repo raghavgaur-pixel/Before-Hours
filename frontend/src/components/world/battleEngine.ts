@@ -494,6 +494,7 @@ const RESPAWN: Record<string, number> = { zombie: 5, villain: 6, monster: 10 };
 
 function killEnemy(e: Enemy, hero: HeroId) {
   e.alive = false;
+  pushDeath(e.x, e.z, e.kind, e.kind === "boss");
   if (hero === engine.selected) engine.p.kills++;
   if (e.kind === "monster" || e.kind === "zombie" || e.kind === "villain") {
     engine.prog.kills[e.kind]++;
@@ -505,6 +506,11 @@ function killEnemy(e: Enemy, hero: HeroId) {
     engine.prog.bossDiedAt = engine.now;
     engine.shake = 1;
     engine.victoryUntil = engine.now + 8;
+    // The collapse is followed by a second, much larger golden burst as the body dissolves.
+    schedule(engine.now + 2.4, () => {
+      pushDeath(e.x, e.z, "boss", true);
+      engine.shake = 1;
+    });
     say("THE GRAFTED KING FALLS! Victory!");
     showBanner("VICTORY", "The Grafted King is slain", 5);
   } else if (e.kind === "monster") {

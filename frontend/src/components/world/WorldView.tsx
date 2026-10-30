@@ -330,7 +330,7 @@ export function WorldView() {
     const id = setInterval(() => {
       setTick((n) => n + 1);
       // End screens have buttons, so give the mouse back.
-      const ended = engine.gameOver || (engine.prog.boss === "dead" && engine.now - engine.prog.bossDiedAt > 2.5);
+      const ended = engine.gameOver || (engine.prog.boss === "dead" && engine.now - engine.prog.bossDiedAt > 4.6);
       if (ended && document.pointerLockElement) document.exitPointerLock();
     }, 100);
     return () => clearInterval(id);
@@ -623,7 +623,7 @@ export function WorldView() {
           </div>
         )}
 
-        {engine.prog.boss === "dead" && engine.now - engine.prog.bossDiedAt > 2.5 && (
+        {engine.prog.boss === "dead" && engine.now - engine.prog.bossDiedAt > 4.6 && (
           <div className="pointer-events-auto absolute left-1/2 top-1/2 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded border border-gold/60 bg-black/90 p-5 text-center backdrop-blur">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/images/boss.webp" alt="" className="mx-auto mb-3 h-24 rounded border border-gold/40 opacity-70 grayscale" />

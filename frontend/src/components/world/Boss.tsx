@@ -88,7 +88,7 @@ export function Boss() {
     const t = clock.elapsedTime;
     const now = engine.now;
     const pr = engine.prog;
-    const show = pr.boss === "arrived" || (pr.boss === "dead" && now - pr.bossDiedAt < 7);
+    const show = pr.boss === "arrived" || (pr.boss === "dead" && now - pr.bossDiedAt < 4.6);
     r.visible = show;
     if (!show) return;
 
@@ -103,6 +103,9 @@ export function Boss() {
       yaw.current += Math.atan2(Math.sin(want - yaw.current), Math.cos(want - yaw.current)) * 0.06;
     }
     r.rotation.y = yaw.current;
+    // After it falls, the body crumbles into gold light.
+    const crumble = pr.boss === "dead" ? seg(now - pr.bossDiedAt, 2.4, 4.4) : 0;
+    r.scale.setScalar(2.6 * (1 - crumble * crumble));
 
     const pCleave = progress("boss", "cleave");
     const pFlurry = progress("boss", "flurry");
