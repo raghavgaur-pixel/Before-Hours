@@ -126,8 +126,7 @@ export function generateTiles(radius = MAP_RADIUS): Tile[] {
 
 export const TILES = generateTiles();
 
-/** Height of the terrain under a world position (nearest tile top). */
-export function groundAt(x: number, z: number) {
+export function nearestTile(x: number, z: number) {
   let best = TILES[0];
   let bd = Infinity;
   for (const t of TILES) {
@@ -137,9 +136,37 @@ export function groundAt(x: number, z: number) {
       best = t;
     }
   }
-  return best.height;
+  return best;
 }
 
+/** Height of the terrain under a world position (nearest tile top). */
+export const groundAt = (x: number, z: number) => nearestTile(x, z).height;
+
+/** River tiles carrying the two bridges. */
+export const BRIDGE_TILES = [-3, 3]
+  .map((zTarget) =>
+    TILES.filter((t) => t.terrain === "water" && t.ring <= 6).sort(
+      (a, b) => Math.abs(a.z - zTarget) - Math.abs(b.z - zTarget),
+    )[0],
+  )
+  .filter(Boolean);
+
+/** Can a character stand here? Mountains and open water are blocked; bridges are fine. */
+export function isWalkable(x: number, z: number) {
+  const t = nearestTile(x, z);
+  if (t.terrain === "mountain") return false;
+  if (t.terrain === "water") return BRIDGE_TILES.some((b) => Math.hypot(b.x - x, b.z - z) < 1.3 && Math.abs(z - b.z) < 0.5);
+  return Math.hypot(x, z) < 11;
+}
+
+export type Interactable = { id: string; x: number; z: number; r: number; label: string };
+
+export const INTERACTABLES: Interactable[] = [
+  { id: "bonfire", x: BATTLE.x - 1.9, z: BATTLE.z + 1.0, r: 1.4, label: "Rest at the bonfire" },
+  { id: "well", x: -1.0, z: -1.15, r: 1.2, label: "Drink from the well" },
+  { id: "pen", x: PEN.x, z: PEN.z, r: 1.7, label: "Calm the cattle" },
+  { id: "grave", x: GRAVEYARD.x, z: GRAVEYARD.z, r: 1.6, label: "Pay your respects" },
+];
 export const TERRAIN_LABEL: Record<Terrain, string> = {
   village: "Settlement grounds",
   grass: "Meadow",

@@ -6,8 +6,7 @@ import { useRef } from "react";
 import type { Group, Mesh, MeshBasicMaterial, PointLight } from "three";
 import { ease, hold, lunge, seg, swingAngle } from "./battle";
 import { engine, heroAct, hitFlash, progress } from "./battleEngine";
-
-type V3 = [number, number, number];
+import { groundAt } from "./terrain";
 
 const FLESH = "#2a2025";
 const BONE = "#cfc4ab";
@@ -27,7 +26,9 @@ function Claws({ y = -0.5 }: { y?: number }) {
 }
 
 /** The Gravemaw: swipes, rearing slams, a lunging bite and a roar. Click it to attack. */
-export function Monster({ position, facing }: { position: V3; facing: number }) {
+export function Monster() {
+  const root = useRef<Group>(null);
+  const yaw = useRef(-1.6);
   const body = useRef<Group>(null);
   const lean = useRef<Group>(null);
   const torso = useRef<Mesh>(null);
@@ -46,7 +47,20 @@ export function Monster({ position, facing }: { position: V3; facing: number }) 
     const t = clock.elapsedTime;
     const g = body.current;
     const ln = lean.current;
-    if (!g || !ln) return;
+    const r = root.current;
+    if (!g || !ln || !r) return;
+    const e = engine.enemies.monster;
+    r.position.set(e.x, groundAt(e.x, e.z), e.z);
+    if (e.alive) {
+      const near = [engine.pos.warden, engine.pos.sentinel].sort(
+        (a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z),
+      )[0];
+      const want = Math.atan2(near.x - e.x, near.z - e.z);
+      const d = Math.atan2(Math.sin(want - yaw.current), Math.cos(want - yaw.current));
+      yaw.current += d * 0.08;
+    }
+    r.rotation.y = yaw.current;
+    const stunned = e.alive && engine.now < e.stunUntil;
 
     const pSwipe = progress("monster", "swipe");
     const pSlam = progress("monster", "slam");
@@ -100,6 +114,13 @@ export function Monster({ position, facing }: { position: V3; facing: number }) 
       y += r * 0.05 + Math.sin(t * 50) * 0.015 * r;
     }
 
+    if (stunned && pSwipe < 0 && pSlam < 0 && pLunge < 0 && pRoar < 0) {
+      tilt = -0.35 + Math.sin(t * 9) * 0.05;
+      headUp = 0.7;
+      jawOpen = 0.5;
+      rArm = lArm = 0.5;
+    }
+
     if (pDie >= 0 || dead) {
       const d = dead ? (pDie >= 0 ? pDie : 1) : 0;
       tilt = -1.45 * ease(seg(d, 0, 0.7));
@@ -128,7 +149,7 @@ export function Monster({ position, facing }: { position: V3; facing: number }) 
       (wave.current.material as MeshBasicMaterial).opacity = v > 0 ? (1 - v) * 0.8 : 0;
     }
     if (bar.current && barG.current) {
-      const f = Math.max(0.001, engine.hp.monster / engine.maxHp.monster);
+      const f = Math.max(0.001, engine.enemies.monster.hp / engine.enemies.monster.maxHp);
       bar.current.scale.x = f * 0.6;
       bar.current.position.x = -0.3 * (1 - f);
       barG.current.visible = engine.alive;
@@ -160,12 +181,11 @@ export function Monster({ position, facing }: { position: V3; facing: number }) 
 
   return (
     <group
-      position={position}
-      rotation={[0, facing, 0]}
+      ref={root}
       scale={1.5}
       onClick={(e) => {
         e.stopPropagation();
-        heroAct(engine.selected);
+        heroAct(engine.selected, "light");
       }}
       onPointerOver={() => {
         document.body.style.cursor = "crosshair";

@@ -4,9 +4,16 @@ import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group, Mesh, MeshBasicMaterial } from "three";
 import { ease, hold, lunge, seg, swingAngle } from "./battle";
-import { engine, hitFlash, progress, selectHero } from "./battleEngine";
-
-type V3 = [number, number, number];
+import {
+  ROLL_DUR,
+  chargeFrac,
+  engine,
+  gestureProgress,
+  hitFlash,
+  progress,
+  selectHero,
+  type HeroId,
+} from "./battleEngine";
 
 const GLOW = "#34e0c0";
 const EMBER = "#ff9a3c";
@@ -14,6 +21,45 @@ const EMBER = "#ff9a3c";
 const pointer = (on: boolean) => {
   document.body.style.cursor = on ? "pointer" : "";
 };
+
+/** Pose inputs shared by both heroes: movement, dodge roll, guard, parry, charge and gestures. */
+function common(id: HeroId, dt: number, walk: { current: number }) {
+  const me = engine.pos[id];
+  const sel = engine.selected === id;
+  const p = engine.p;
+  const roll = sel && engine.now < p.rollUntil ? (engine.now - p.rollStart) / ROLL_DUR : -1;
+  const parry = sel && engine.now < p.parryUntil ? 1 - (p.parryUntil - engine.now) / 0.35 : -1;
+  walk.current += me.speed * dt * 3.4;
+  return {
+    me,
+    sel,
+    roll,
+    parry,
+    block: sel && p.blocking,
+    charge: sel ? chargeFrac() : 0,
+    gest: sel ? gestureProgress() : null,
+    gait: Math.sin(walk.current) * Math.min(1, me.speed / 1.6) * 0.85,
+    sprint: me.speed > 2.5 && roll < 0,
+  };
+}
+
+function GuardDisc({ disc, color }: { disc: React.RefObject<Mesh | null>; color: string }) {
+  return (
+    <mesh ref={disc} position={[0, 0.5, 0.38]} visible={false}>
+      <circleGeometry args={[0.32, 20]} />
+      <meshBasicMaterial color={color} transparent opacity={0.4} toneMapped={false} depthWrite={false} side={2} />
+    </mesh>
+  );
+}
+
+function setDisc(m: Mesh | null, block: boolean, parry: number, color: string) {
+  if (!m) return;
+  m.visible = block || parry >= 0;
+  const mat = m.material as MeshBasicMaterial;
+  mat.color.set(parry >= 0 ? "#ffffff" : color);
+  mat.opacity = parry >= 0 ? 0.85 : 0.4;
+  m.scale.setScalar(parry >= 0 ? 1 + parry * 0.9 : 1);
+}
 
 function SelectRing({ id, radius, color }: { id: "warden" | "sentinel"; radius: number; color: string }) {
   const ref = useRef<Mesh>(null);
@@ -31,7 +77,12 @@ function SelectRing({ id, radius, color }: { id: "warden" | "sentinel"; radius: 
 }
 
 /** Veylorn-style hooded dark-fantasy knight. Procedural placeholder for a GLB. */
-export function AshenWarden({ position, facing }: { position: V3; facing: number }) {
+export function AshenWarden() {
+  const root = useRef<Group>(null);
+  const walk = useRef(0);
+  const legs = useRef<(Group | null)[]>([]);
+  const disc = useRef<Mesh>(null);
+  const glow = useRef<Mesh>(null);
   const body = useRef<Group>(null);
   const hand = useRef<Group>(null);
   const bladeG = useRef<Group>(null);
@@ -46,10 +97,13 @@ export function AshenWarden({ position, facing }: { position: V3; facing: number
   const runeOuter = useRef<Mesh>(null);
   const orbs = useRef<Group>(null);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     const t = clock.elapsedTime;
     const b = body.current;
-    if (!b) return;
+    if (!b || !root.current) return;
+    const C = common("warden", Math.min(delta, 0.05), walk);
+    root.current.position.set(C.me.x, C.me.y, C.me.z);
+    root.current.rotation.y = C.me.yaw;
     const w = engine.weapon.warden;
     const pBlade = progress("warden", "blade");
     const pStaff = progress("warden", "staff");
@@ -102,12 +156,48 @@ export function AshenWarden({ position, facing }: { position: V3; facing: number
     }
     z -= hit * 0.18;
 
+    // Player-state poses.
+    const idle = pBlade < 0 && pStaff < 0 && pBow < 0 && pRend < 0;
+    if (idle) {
+      if (C.charge > 0) {
+        swing = -1.1 * C.charge;
+        lean -= 0.15 * C.charge;
+      }
+      if (C.block || C.parry >= 0) armFwd = Math.max(armFwd, 0.75);
+      if (C.sprint) lean += 0.28;
+      if (C.gest) {
+        const g = C.gest;
+        if (g.kind === "wave") armRaise = 1;
+        else if (g.kind === "cheer") {
+          armRaise = 1;
+          y += Math.abs(Math.sin(g.p * Math.PI * 3)) * 0.1;
+        } else if (g.kind === "bow") lean += 0.9 * Math.sin(g.p * Math.PI);
+        else if (g.kind === "taunt") {
+          armFwd = 1;
+          lean -= 0.2;
+        }
+      }
+    }
+    let scaleY = 1;
+    if (C.roll >= 0) {
+      lean = C.roll * Math.PI * 2;
+      y -= 0.08;
+      scaleY = 0.85;
+    }
+    legs.current.forEach((l, i) => {
+      if (l) l.rotation.x = (i === 0 ? 1 : -1) * C.gait;
+    });
+    setDisc(disc.current, C.block && idle, idle ? C.parry : -1, GLOW);
+    if (glow.current) glow.current.scale.setScalar(C.charge * 1.3);
+
     b.position.set(Math.sin(t * 55) * hit * 0.03, y, z);
     b.rotation.set(lean, twist, 0);
+    b.scale.y = scaleY;
 
     if (hand.current) hand.current.rotation.set(0.1 + swing, 0, sideTilt);
     if (armL.current) {
-      armL.current.rotation.z = -2.45 * armRaise;
+      const wave = C.gest?.kind === "wave" ? Math.sin(t * 10) * 0.3 : 0;
+      armL.current.rotation.z = -2.45 * armRaise + wave;
       armL.current.rotation.x = -0.35 * armRaise - 1.55 * armFwd;
     }
     if (bowG.current) bowG.current.rotation.x = 1.55 * armFwd;
@@ -137,8 +227,7 @@ export function AshenWarden({ position, facing }: { position: V3; facing: number
 
   return (
     <group
-      position={position}
-      rotation={[0, facing, 0]}
+      ref={root}
       scale={1.1}
       onClick={(e) => {
         e.stopPropagation();
@@ -149,11 +238,19 @@ export function AshenWarden({ position, facing }: { position: V3; facing: number
     >
       <SelectRing id="warden" radius={0.52} color={GLOW} />
       <group ref={body}>
-        {[-0.07, 0.07].map((x) => (
-          <mesh key={x} position={[x, 0.15, 0]}>
-            <cylinderGeometry args={[0.05, 0.045, 0.3, 8]} />
-            <meshStandardMaterial color="#1a1c20" metalness={0.6} roughness={0.5} />
-          </mesh>
+        {[-0.07, 0.07].map((x, i) => (
+          <group
+            key={x}
+            ref={(el) => {
+              legs.current[i] = el;
+            }}
+            position={[x, 0.3, 0]}
+          >
+            <mesh position={[0, -0.15, 0]}>
+              <cylinderGeometry args={[0.05, 0.045, 0.3, 8]} />
+              <meshStandardMaterial color="#1a1c20" metalness={0.6} roughness={0.5} />
+            </mesh>
+          </group>
         ))}
         <mesh position={[0, 0.45, 0]}>
           <boxGeometry args={[0.28, 0.3, 0.18]} />
@@ -275,6 +372,11 @@ export function AshenWarden({ position, facing }: { position: V3; facing: number
           <ringGeometry args={[0.5, 0.52, 3]} />
           <meshBasicMaterial color={GLOW} transparent opacity={0} toneMapped={false} depthWrite={false} />
         </mesh>
+        <GuardDisc disc={disc} color={GLOW} />
+        <mesh ref={glow} position={[0.24, 0.95, 0.1]} scale={0}>
+          <sphereGeometry args={[0.07, 10, 10]} />
+          <meshBasicMaterial color="#aaf5e8" toneMapped={false} />
+        </mesh>
         <group ref={orbs} position={[0, 0.5, 0]} scale={0}>
           {[0, 1, 2].map((i) => (
             <mesh key={i} position={[Math.cos((i * Math.PI * 2) / 3) * 0.36, 0.1 * i, Math.sin((i * Math.PI * 2) / 3) * 0.36]}>
@@ -289,7 +391,12 @@ export function AshenWarden({ position, facing }: { position: V3; facing: number
 }
 
 /** Stonebound-style iron golem: hammer, shoulder cannon and shield. */
-export function IronSentinel({ position, facing }: { position: V3; facing: number }) {
+export function IronSentinel() {
+  const root = useRef<Group>(null);
+  const walk = useRef(0);
+  const legs = useRef<(Group | null)[]>([]);
+  const disc = useRef<Mesh>(null);
+  const glow = useRef<Mesh>(null);
   const body = useRef<Group>(null);
   const hammer = useRef<Group>(null);
   const cannon = useRef<Group>(null);
@@ -298,10 +405,13 @@ export function IronSentinel({ position, facing }: { position: V3; facing: numbe
   const ring = useRef<Mesh>(null);
   const ring2 = useRef<Mesh>(null);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     const t = clock.elapsedTime;
     const b = body.current;
-    if (!b) return;
+    if (!b || !root.current) return;
+    const C = common("sentinel", Math.min(delta, 0.05), walk);
+    root.current.position.set(C.me.x, C.me.y, C.me.z);
+    root.current.rotation.y = C.me.yaw;
     const w = engine.weapon.sentinel;
     const pHam = progress("sentinel", "hammer");
     const pCan = progress("sentinel", "cannon");
@@ -311,7 +421,7 @@ export function IronSentinel({ position, facing }: { position: V3; facing: numbe
 
     if (hammer.current) hammer.current.visible = w === "hammer" || pQuake >= 0;
     if (cannon.current) cannon.current.visible = w === "cannon" && pQuake < 0;
-    if (shield.current) shield.current.visible = w === "shield" && pQuake < 0;
+    if (shield.current) shield.current.visible = (w === "shield" || C.block || C.parry >= 0) && pQuake < 0;
 
     let z = 0;
     let y = Math.sin(t * 1.1) * 0.006;
@@ -348,8 +458,42 @@ export function IronSentinel({ position, facing }: { position: V3; facing: numbe
     }
     z -= hit * 0.2;
 
+    const idle = pHam < 0 && pCan < 0 && pShi < 0 && pQuake < 0;
+    if (idle) {
+      if (C.charge > 0) {
+        hamAngle = -1.4 * C.charge;
+        lean -= 0.18 * C.charge;
+      }
+      if (C.block || C.parry >= 0) shieldZ = 0.25;
+      if (C.sprint) lean += 0.25;
+      if (C.gest) {
+        const g = C.gest;
+        if (g.kind === "wave") hamAngle = -2.2 + Math.sin(t * 8) * 0.3;
+        else if (g.kind === "cheer") {
+          hamAngle = -2.6;
+          y += Math.abs(Math.sin(g.p * Math.PI * 3)) * 0.1;
+        } else if (g.kind === "bow") lean += 0.8 * Math.sin(g.p * Math.PI);
+        else if (g.kind === "taunt") {
+          hamAngle = -1.2;
+          lean -= 0.2;
+        }
+      }
+    }
+    let scaleY = 1;
+    if (C.roll >= 0) {
+      lean = C.roll * Math.PI * 2;
+      y -= 0.08;
+      scaleY = 0.85;
+    }
+    legs.current.forEach((l, i) => {
+      if (l) l.rotation.x = (i === 0 ? 1 : -1) * C.gait;
+    });
+    setDisc(disc.current, C.block && idle, idle ? C.parry : -1, EMBER);
+    if (glow.current) glow.current.scale.setScalar(C.charge * 1.4);
+
     b.position.set(Math.sin(t * 60) * hit * 0.04, y, z);
     b.rotation.x = lean;
+    b.scale.y = scaleY;
     if (hammer.current) hammer.current.rotation.x = hamAngle;
     if (shield.current) shield.current.position.z = 0.1 + shieldZ;
     if (muzzle.current) muzzle.current.scale.setScalar(kick * 1.8);
@@ -368,8 +512,7 @@ export function IronSentinel({ position, facing }: { position: V3; facing: numbe
 
   return (
     <group
-      position={position}
-      rotation={[0, facing, 0]}
+      ref={root}
       scale={1.15}
       onClick={(e) => {
         e.stopPropagation();
@@ -380,11 +523,19 @@ export function IronSentinel({ position, facing }: { position: V3; facing: numbe
     >
       <SelectRing id="sentinel" radius={0.55} color={EMBER} />
       <group ref={body}>
-        {[-0.1, 0.1].map((x) => (
-          <mesh key={x} position={[x, 0.14, 0]}>
-            <boxGeometry args={[0.13, 0.28, 0.15]} />
-            <meshStandardMaterial {...iron} />
-          </mesh>
+        {[-0.1, 0.1].map((x, i) => (
+          <group
+            key={x}
+            ref={(el) => {
+              legs.current[i] = el;
+            }}
+            position={[x, 0.28, 0]}
+          >
+            <mesh position={[0, -0.14, 0]}>
+              <boxGeometry args={[0.13, 0.28, 0.15]} />
+              <meshStandardMaterial {...iron} />
+            </mesh>
+          </group>
         ))}
         <mesh position={[0, 0.5, 0]}>
           <boxGeometry args={[0.42, 0.42, 0.28]} />
@@ -464,6 +615,11 @@ export function IronSentinel({ position, facing }: { position: V3; facing: numbe
           </mesh>
         </group>
         <pointLight position={[0, 0.55, 0.3]} color={EMBER} intensity={1.4} distance={1.8} />
+        <GuardDisc disc={disc} color={EMBER} />
+        <mesh ref={glow} position={[0.42, 0.95, 0.1]} scale={0}>
+          <sphereGeometry args={[0.08, 10, 10]} />
+          <meshBasicMaterial color="#ffd9a0" toneMapped={false} />
+        </mesh>
       </group>
 
       <group position={[-0.5, 0, 0.35]} rotation={[0, 0.4, 0]}>

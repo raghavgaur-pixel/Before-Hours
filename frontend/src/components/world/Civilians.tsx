@@ -279,7 +279,7 @@ export function Civilian({
       </group>
 
       {/* "!" over the head while panicking. */}
-      <Billboard position={[0, 0.62, 0]}>
+      <Billboard position={[0, 0.62, 0]} scale={0.6}>
         <group ref={bang} visible={false}>
           <mesh position={[0, 0.03, 0]}>
             <capsuleGeometry args={[0.012, 0.045, 3, 6]} />
