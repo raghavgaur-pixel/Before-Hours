@@ -38,6 +38,7 @@ env/
 
 # Environment variables and sensitive config
 .env
+.env.example
 .env.local
 .env.development
 .env.production
@@ -91,3 +92,5 @@ Thumbs.db
 *.bak
 *.backup
 *~
+
+AGENTS.md
