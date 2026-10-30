@@ -11,7 +11,7 @@ This repository is the project workspace. The current `test` branch contains an 
 
 ## Current implementation status
 
-<badge>Snapshot: `test` branch · 30 October 2026</badge>
+**Snapshot: `test` branch · 30 October 2026**
 
 | Area | Current state |
 |---|---|
