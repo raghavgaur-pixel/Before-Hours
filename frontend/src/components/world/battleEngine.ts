@@ -1,11 +1,11 @@
 import { useSyncExternalStore } from "react";
-import { GRAVEYARD, INTERACTABLES, MONSTER_XZ, SENTINEL_XZ, WARDEN_XZ, groundAt } from "./terrain";
+import { GRAVEYARD, INTERACTABLES, MONSTER_XZ, SENTINEL_XZ, WARDEN_XZ, groundAt, isWalkable, nearestTile } from "./terrain";
 
 export type HeroId = "warden" | "sentinel";
 /** A hero id, or an enemy id ("monster", "z0", ...). */
 export type Actor = string;
 export type WeaponId = "blade" | "staff" | "bow" | "daggers" | "hammer" | "cannon" | "shield" | "gauntlets";
-export type AnimKind = WeaponId | "rend" | "quake" | "swipe" | "slam" | "lunge" | "roar" | "die";
+export type AnimKind = WeaponId | "rend" | "quake" | "swipe" | "slam" | "lunge" | "roar" | "die" | "cleave" | "flurry" | "stomp";
 export type AttackMode = "light" | "heavy" | "strong" | "skill";
 export type ItemId = "potion" | "flask" | "salve";
 
@@ -68,6 +68,9 @@ export const TIMELINE: Record<AnimKind, { dur: number; hits: number[]; launches?
   swipe: { dur: 1.5, hits: [0.9] },
   slam: { dur: 1.9, hits: [1.3] },
   lunge: { dur: 1.6, hits: [1.0] },
+  cleave: { dur: 2.3, hits: [1.4] },
+  flurry: { dur: 2.6, hits: [0.8, 1.1, 1.4, 1.7] },
+  stomp: { dur: 2.1, hits: [1.3] },
   roar: { dur: 1.7, hits: [] },
   die: { dur: 2.4, hits: [] },
 };
@@ -77,7 +80,7 @@ export type Impact = { t: number; target: Actor; color: string; power: number };
 
 export type Enemy = {
   id: string;
-  kind: "monster" | "zombie";
+  kind: "monster" | "zombie" | "villain" | "boss";
   x: number;
   z: number;
   hp: number;
@@ -99,12 +102,35 @@ export const zombieSpawn = (i: number): [number, number] => [
   GRAVEYARD.z + Math.sin(i * 1.05 + 0.4) * 1.3,
 ];
 export const ZOMBIE_COUNT = 6;
+export const VILLAIN_COUNT = 3;
+
+/** Raiders come in from the fields south of the village. */
+const VILLAIN_SPOTS: [number, number][] = [[-3.4, 4.4], [1.8, 5.6], [-0.8, 6.2], [3.0, 4.0], [-2.0, 5.4]];
+export const villainSpawn = (i: number): [number, number] => {
+  const ok = VILLAIN_SPOTS.filter(([x, z]) => isWalkable(x, z));
+  return ok[i % Math.max(1, ok.length)] ?? VILLAIN_SPOTS[0];
+};
+
+/** Progression: kill enemies for XP, level up to upgrade the party and weapons, reach the boss level. */
+export const XP_PER_LEVEL = 40;
+export const BOSS_LEVEL = 4;
+export const XP_VALUE = { zombie: 10, villain: 20, monster: 40, boss: 0 } as const;
+export const tierForLevel = (level: number) => Math.min(3, 1 + Math.floor(level / 2));
+export const TIER_NAME = ["", "I", "II", "III"];
 
 const zombies = Object.fromEntries(
   Array.from({ length: ZOMBIE_COUNT }, (_, i) => {
     const [x, z] = zombieSpawn(i);
     const id = `z${i}`;
     return [id, { id, kind: "zombie", x, z, hp: 45, maxHp: 45, alive: true, stunUntil: 0, chestY: 0.5, reach: 0.8, radius: 0.3 } as Enemy];
+  }),
+);
+
+const villains = Object.fromEntries(
+  Array.from({ length: VILLAIN_COUNT }, (_, i) => {
+    const [x, z] = villainSpawn(i);
+    const id = `v${i}`;
+    return [id, { id, kind: "villain", x, z, hp: 70, maxHp: 70, alive: true, stunUntil: 0, chestY: 0.55, reach: 0.95, radius: 0.3 } as Enemy];
   }),
 );
 export const ROLL_DUR = 0.55;
@@ -123,10 +149,23 @@ export const engine = {
   } as Record<HeroId, HeroPos>,
   enemies: {
     monster: { id: "monster", kind: "monster", x: MONSTER_XZ[0], z: MONSTER_XZ[1], hp: 320, maxHp: 320, alive: true, stunUntil: 0, chestY: 1.1, reach: 3.2, radius: 0.9 },
+    boss: { id: "boss", kind: "boss", x: 0.5, z: -4.8, hp: 600, maxHp: 600, alive: false, stunUntil: 0, chestY: 1.9, reach: 4.8, radius: 1.2 },
     ...zombies,
+    ...villains,
   } as Record<string, Enemy>,
   /** Civilian positions, written by each villager every frame so husks can hunt them. */
   civs: [] as { x: number; z: number; downUntil: number }[],
+  prog: {
+    xp: 0,
+    level: 1,
+    tier: 1,
+    kills: { zombie: 0, villain: 0, monster: 0 },
+    levelUpAt: -9,
+    banner: null as null | { title: string; sub: string; img?: string; until: number },
+    boss: "locked" as "locked" | "arrived" | "dead",
+    bossAt: -9,
+    bossDiedAt: -9,
+  },
   alive: true,
   /** Chosen look per hero (see skins.ts). */
   skin: { warden: "warden-classic", sentinel: "sentinel-classic" } as Record<HeroId, string>,
@@ -144,6 +183,7 @@ export const engine = {
   panic: 0,
   log: [] as string[],
   nextMonsterAct: 5,
+  nextBossAct: 0,
   nextAuto: 2,
   /** State of the hero under the player's control. */
   p: {
@@ -308,35 +348,136 @@ function damageEnemy(id: string, hero: HeroId, dmg: number, power: number) {
   emit();
 }
 
+export function showBanner(title: string, sub: string, seconds = 3.5, img?: string) {
+  engine.prog.banner = { title, sub, img, until: engine.now + seconds };
+}
+
+function levelUp() {
+  const pr = engine.prog;
+  pr.level++;
+  pr.levelUpAt = engine.now;
+  for (const h of ["warden", "sentinel"] as HeroId[]) {
+    engine.maxHp[h] += 15;
+    engine.hp[h] = engine.maxHp[h];
+  }
+  engine.p.maxStamina += 10;
+  engine.p.stamina = engine.p.maxStamina;
+  const tier = tierForLevel(pr.level);
+  const upgraded = tier > pr.tier;
+  pr.tier = tier;
+  say(`LEVEL UP! Party level ${pr.level}${upgraded ? ` · weapons upgraded to tier ${TIER_NAME[tier]}` : ""}`);
+  showBanner(`LEVEL ${pr.level}`, upgraded ? `Your weapons are now tier ${TIER_NAME[tier]}` : "Health, stamina and damage increased");
+  if (pr.level >= BOSS_LEVEL) onBossLevel();
+}
+
+/** The final boss rises from the north once the party reaches BOSS_LEVEL. Minions stop respawning. */
+export function spawnBoss() {
+  const pr = engine.prog;
+  if (pr.boss !== "locked") return;
+  pr.boss = "arrived";
+  pr.bossAt = engine.now;
+  for (const en of Object.values(engine.enemies)) {
+    if (en.id !== "boss") en.alive = false;
+  }
+  engine.alive = false;
+  engine.p.lock = false;
+  engine.p.target = null;
+  const b = engine.enemies.boss;
+  b.alive = true;
+  b.hp = b.maxHp;
+  b.x = 0.5;
+  b.z = -4.8;
+  engine.anim.boss = undefined;
+  engine.nextBossAct = engine.now + 3.5;
+  engine.shake = 1;
+  say("THE GRAFTED KING has arrived!");
+  showBanner("THE GRAFTED KING", "A giant draped in gold, grown from a dozen stolen arms…", 6.5, "/images/boss.webp");
+  emit();
+}
+const onBossLevel = () => spawnBoss();
+
+export function addXp(n: number) {
+  const pr = engine.prog;
+  pr.xp += n;
+  while (pr.xp >= XP_PER_LEVEL && pr.level < BOSS_LEVEL) {
+    pr.xp -= XP_PER_LEVEL;
+    levelUp();
+  }
+  if (pr.level >= BOSS_LEVEL) pr.xp = Math.min(pr.xp, XP_PER_LEVEL);
+  emit();
+}
+
+export function resetProgress() {
+  const pr = engine.prog;
+  pr.xp = 0;
+  pr.level = 1;
+  pr.tier = 1;
+  pr.kills = { zombie: 0, villain: 0, monster: 0 };
+  engine.maxHp.warden = MAX_HP.warden;
+  engine.maxHp.sentinel = MAX_HP.sentinel;
+  engine.hp.warden = MAX_HP.warden;
+  engine.hp.sentinel = MAX_HP.sentinel;
+  engine.p.maxStamina = 100;
+  engine.p.stamina = 100;
+  pr.boss = "locked";
+  engine.enemies.boss.alive = false;
+  engine.anim.boss = undefined;
+  for (const en of Object.values(engine.enemies)) {
+    if (en.id === "boss") continue;
+    en.alive = true;
+    en.hp = en.maxHp;
+  }
+  engine.enemies.monster.x = MONSTER_XZ[0];
+  engine.enemies.monster.z = MONSTER_XZ[1];
+  engine.anim.monster = undefined;
+  engine.alive = true;
+  say("Progress reset");
+  emit();
+}
+
+const RESPAWN: Record<string, number> = { zombie: 5, villain: 8, monster: 10 };
+
 function killEnemy(e: Enemy, hero: HeroId) {
   e.alive = false;
   if (hero === engine.selected) engine.p.kills++;
-  if (e.kind === "monster") {
+  if (e.kind === "monster" || e.kind === "zombie" || e.kind === "villain") {
+    engine.prog.kills[e.kind]++;
+    addXp(XP_VALUE[e.kind]);
+  }
+  if (e.kind === "boss") {
+    engine.anim.boss = { kind: "die", start: engine.now, dur: TIMELINE.die.dur };
+    engine.prog.boss = "dead";
+    engine.prog.bossDiedAt = engine.now;
+    engine.shake = 1;
+    engine.victoryUntil = engine.now + 8;
+    say("THE GRAFTED KING FALLS! Victory!");
+    showBanner("VICTORY", "The Grafted King is slain", 5);
+  } else if (e.kind === "monster") {
     engine.alive = false;
     engine.anim.monster = { kind: "die", start: engine.now, dur: TIMELINE.die.dur };
     engine.shake = 1;
     engine.victoryUntil = engine.now + 5;
     say("The Gravemaw is slain!");
-    schedule(engine.now + 9, () => {
+    schedule(engine.now + RESPAWN.monster, () => {
+      if (engine.prog.boss !== "locked") return;
       e.alive = true;
       e.hp = e.maxHp;
       e.x = MONSTER_XZ[0];
       e.z = MONSTER_XZ[1];
       engine.alive = true;
       engine.anim.monster = undefined;
-      engine.hp.warden = engine.maxHp.warden;
-      engine.hp.sentinel = engine.maxHp.sentinel;
       engine.nextMonsterAct = engine.now + 2;
       say("A new Gravemaw claws out of the fog…");
       emit();
     });
   } else {
-    say("A husk collapses");
+    say(e.kind === "villain" ? "A raider falls" : "A husk collapses");
     if (engine.p.target === e.id) {
       engine.p.target = null;
       engine.p.lock = false;
     }
-    schedule(engine.now + 12, () => {
+    schedule(engine.now + RESPAWN[e.kind], () => {
+      if (engine.prog.boss !== "locked") return;
       e.alive = true;
       e.hp = e.maxHp;
       emit();
@@ -366,6 +507,9 @@ export function enemyHitsHero(enemyId: string, hero: HeroId, dmg: number) {
     if (enemyId === "monster") {
       engine.anim.monster = undefined;
       engine.nextMonsterAct = engine.now + 2.4;
+    } else if (enemyId === "boss") {
+      engine.anim.boss = undefined;
+      engine.nextBossAct = engine.now + 2.2;
     }
     p.stamina = Math.min(p.maxStamina, p.stamina + 25);
     impact(enemyId, "#ffffff", 1.6);
@@ -416,7 +560,9 @@ export function heroAct(hero: HeroId, mode: AttackMode = "light", charge = 0) {
   engine.anim[hero] = { kind, start: engine.now, dur: tl.dur, target: target?.id, mult };
   engine.cdUntil[id] =
     engine.now + (special ? sp.cooldown : w.cooldown) * (mode === "heavy" ? 1.3 : 1) * (two ? 1.25 : 1);
-  const total = (special ? sp.damage : w.damage) * mult;
+  const prog = engine.prog;
+  const growth = (1 + 0.08 * (prog.level - 1)) * (1 + 0.25 * (prog.tier - 1));
+  const total = (special ? sp.damage : w.damage) * mult * growth;
   const power = special || mode === "strong" ? 2 : mode === "heavy" ? 1.5 : 1;
   tl.hits.forEach((h) =>
     schedule(engine.now + h, () => {
@@ -613,7 +759,8 @@ export function tick(t: number, dt: number) {
 
   const p = engine.p;
   engine.shake *= Math.exp(-dt * 5);
-  engine.panic += ((engine.alive ? 1 : 0) - engine.panic) * Math.min(1, dt * (engine.alive ? 2.5 : 1.2));
+  const threat = engine.alive || engine.enemies.boss.alive;
+  engine.panic += ((threat ? 1 : 0) - engine.panic) * Math.min(1, dt * (threat ? 2.5 : 1.2));
   if (!p.sprinting && !p.blocking && !p.charging) p.stamina = Math.min(p.maxStamina, p.stamina + dt * 24);
   if (p.blocking) p.stamina = Math.max(0, p.stamina - dt * 4);
   if (p.stamina <= 0 && p.blocking) p.blocking = false;
@@ -671,6 +818,35 @@ export function tick(t: number, dt: number) {
           const dmg = kind === "slam" ? 24 : kind === "lunge" ? 20 : 14;
           tl.hits.forEach((h) => schedule(t + h, () => enemyHitsHero("monster", near, dmg)));
         }
+        emit();
+      }
+    }
+  }
+
+  // Final boss: marches on the nearest hero and picks a heavy attack that fits the range.
+  const B = engine.enemies.boss;
+  if (B.alive) {
+    const near = (["warden", "sentinel"] as HeroId[]).sort((a, b) => distTo(a, B) - distTo(b, B))[0];
+    const d = distTo(near, B);
+    const rising = t < engine.prog.bossAt + 2.5;
+    if (!busy("boss") && t >= B.stunUntil && !rising) {
+      if (d > 3.6) {
+        const sp = d > 7 ? 1.3 : 0.8;
+        const nx = B.x + ((engine.pos[near].x - B.x) / d) * sp * dt;
+        const nz = B.z + ((engine.pos[near].z - B.z) / d) * sp * dt;
+        if (nearestTile(nx, nz).terrain !== "mountain") {
+          B.x = nx;
+          B.z = nz;
+        }
+      }
+      if (t >= engine.nextBossAct && d < 6.2) {
+        const kind: AnimKind = d < 4.2 ? (["cleave", "flurry", "stomp"] as AnimKind[])[Math.floor(Math.random() * 3)] : "stomp";
+        const tl = TIMELINE[kind];
+        engine.anim.boss = { kind, start: t, dur: tl.dur };
+        engine.nextBossAct = t + tl.dur + 1.2 + Math.random() * 1.2;
+        B.reach = kind === "flurry" ? 4.4 : 5.2;
+        const dmg = kind === "cleave" ? 32 : kind === "stomp" ? 26 : 12;
+        tl.hits.forEach((h) => schedule(t + h, () => enemyHitsHero("boss", near, dmg)));
         emit();
       }
     }

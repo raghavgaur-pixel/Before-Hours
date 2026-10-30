@@ -9,11 +9,13 @@ import { Color, InstancedMesh, Object3D } from "three";
 import { CattlePen, Crow, Deer, Wolf } from "./Animals";
 import { AshenWarden, IronSentinel } from "./Characters";
 import { Bonfire, DeadTree, Graveyard, Lantern, Well } from "./DarkVillage";
+import { Boss } from "./Boss";
 import { CIVILIANS, Civilian } from "./Civilians";
 import { FlaskThrow } from "./effectModels";
 import { Effect } from "./effects";
 import { Monster } from "./Monster";
 import { Waterfall } from "./Waterfall";
+import { LevelUpFx } from "./Progression";
 import { Zombies } from "./Zombies";
 import { engine, tick } from "./battleEngine";
 import { LockReticle } from "./LockReticle";
@@ -358,10 +360,12 @@ export function WorldScene({
       )}
 
       <Zombies />
+      <LevelUpFx />
       <Waterfall />
       <AshenWarden />
       <IronSentinel />
       <Monster />
+      <Boss />
       <Projectiles />
       <ImpactSparks />
       <LockReticle />

@@ -3,19 +3,39 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group } from "three";
-import { ZOMBIE_COUNT, emit, engine, enemyHitsHero, hitFlash, say, schedule, zombieSpawn, heroAct, type HeroId } from "./battleEngine";
+import {
+  VILLAIN_COUNT,
+  ZOMBIE_COUNT,
+  emit,
+  engine,
+  enemyHitsHero,
+  heroAct,
+  hitFlash,
+  say,
+  schedule,
+  villainSpawn,
+  zombieSpawn,
+  type HeroId,
+} from "./battleEngine";
 import { groundAt, isWalkable } from "./terrain";
 
-const SKIN = "#7c8a6e";
-const RAGS = "#3b3535";
+type Variant = "zombie" | "villain";
+
+const LOOK = {
+  zombie: { skin: "#a3a393", robe: "#3a3633", leg: "#2c2a2a", eye: "#e6f0d0", scale: 1.2, aggro: 2.6, atkDur: 1.1, dmg: 7, atkGap: 2.4 },
+  villain: { skin: "#b08a6a", robe: "#2f3a2c", leg: "#241f1a", eye: "#ff6a3a", scale: 1.25, aggro: 5, atkDur: 0.8, dmg: 10, atkGap: 1.8 },
+} as const;
+
 let lastGrabLog = -99;
 
 /**
- * A husk. They shamble toward the nearest villager and drag them down, and will
- * turn on a hero who gets close. They are real enemies: lock on, hit, and they fall.
+ * A husk or a raider. Husks shamble after villagers and turn on heroes who get
+ * close; raiders hunt the heroes directly, faster. Both are real enemies: lock on,
+ * hit them for XP, and they respawn so there is always something to fight.
  */
-function Zombie({ index }: { index: number }) {
-  const id = `z${index}`;
+function Foe({ id, index, variant }: { id: string; index: number; variant: Variant }) {
+  const L = LOOK[variant];
+  const spawn = variant === "zombie" ? zombieSpawn : villainSpawn;
   const root = useRef<Group>(null);
   const body = useRef<Group>(null);
   const armL = useRef<Group>(null);
@@ -62,7 +82,7 @@ function Zombie({ index }: { index: number }) {
     }
     if (!s.wasAlive) {
       s.wasAlive = true;
-      const [sx, sz] = zombieSpawn(index);
+      const [sx, sz] = spawn(index + Math.floor(Math.random() * 3));
       e.x = sx;
       e.z = sz;
       g.visible = true;
@@ -75,18 +95,20 @@ function Zombie({ index }: { index: number }) {
       s.nextThink = now + 0.5;
       let best = -1;
       let bd = 7;
-      engine.civs.forEach((c, i) => {
-        const d = Math.hypot(c.x - e.x, c.z - e.z);
-        if (c.downUntil < now && d < bd) {
-          bd = d;
-          best = i;
-        }
-      });
+      if (variant === "zombie") {
+        engine.civs.forEach((c, i) => {
+          const d = Math.hypot(c.x - e.x, c.z - e.z);
+          if (c.downUntil < now && d < bd) {
+            bd = d;
+            best = i;
+          }
+        });
+      }
       const heroes = (["warden", "sentinel"] as HeroId[]).sort(
         (a, c) => Math.hypot(engine.pos[a].x - e.x, engine.pos[a].z - e.z) - Math.hypot(engine.pos[c].x - e.x, engine.pos[c].z - e.z),
       );
       const hd = Math.hypot(engine.pos[heroes[0]].x - e.x, engine.pos[heroes[0]].z - e.z);
-      if (hd < 2.6) {
+      if (hd < L.aggro) {
         s.kind = "hero";
         s.hero = heroes[0];
       } else if (best >= 0) {
@@ -95,7 +117,7 @@ function Zombie({ index }: { index: number }) {
       } else {
         s.kind = "wander";
         if (Math.hypot(s.tx - e.x, s.tz - e.z) < 0.4 || s.tx === 0) {
-          const [sx, sz] = zombieSpawn(index + Math.floor(Math.random() * 6));
+          const [sx, sz] = spawn(index + Math.floor(Math.random() * 6));
           s.tx = sx;
           s.tz = sz;
         }
@@ -115,11 +137,13 @@ function Zombie({ index }: { index: number }) {
     const dz = tz - e.z;
     const dist = Math.hypot(dx, dz);
     const stunned = now < e.stunUntil;
-    const attacking = now < s.atkStart + 1.1;
+    const attacking = now < s.atkStart + L.atkDur;
     const hunting = s.kind !== "wander";
 
     let speed = 0;
-    if (!stunned && !attacking && dist > (hunting ? 0.45 : 0.3)) speed = hunting ? (dist < 1.8 ? 1.0 : 0.5) : 0.25;
+    if (!stunned && !attacking && dist > (hunting ? 0.45 : 0.3)) {
+      speed = variant === "villain" ? (hunting ? (dist < 2 ? 1.5 : 1.0) : 0.3) : hunting ? (dist < 1.8 ? 1.0 : 0.5) : 0.25;
+    }
     if (speed > 0) {
       const nx = e.x + (dx / dist) * speed * dt;
       const nz = e.z + (dz / dist) * speed * dt;
@@ -142,44 +166,50 @@ function Zombie({ index }: { index: number }) {
           say("A husk drags a villager to the ground!");
           emit();
         }
-      } else if (s.kind === "hero" && dist < 0.8) {
+      } else if (s.kind === "hero" && dist < 0.95) {
         s.atkStart = now;
-        s.nextAtk = now + 2.4;
+        s.nextAtk = now + L.atkGap;
         const target = s.hero;
-        schedule(now + 0.55, () => enemyHitsHero(id, target, 7));
+        schedule(now + L.atkDur * 0.5, () => enemyHitsHero(id, target, L.dmg));
       }
     }
 
     // Pose.
     const hit = hitFlash(id, 8);
-    const ap = attacking ? (now - s.atkStart) / 1.1 : -1;
+    const ap = attacking ? (now - s.atkStart) / L.atkDur : -1;
     const walkAmp = speed > 0 ? Math.min(1, speed / 0.6) : 0;
     const gait = Math.sin(t * (speed > 0.8 ? 7 : 4)) * 0.55 * walkAmp;
     g.position.set(e.x, groundAt(e.x, e.z), e.z);
     g.rotation.y = s.yaw;
     b.position.set(Math.sin(t * 70) * hit * 0.03, Math.abs(gait) * 0.02, -hit * 0.1);
-    b.rotation.set((attacking ? 0.5 * Math.sin(ap * Math.PI) : 0.12) + (stunned ? -0.25 : 0), Math.sin(t * 1.3) * 0.12 * (1 - walkAmp), Math.sin(t * 1.7) * 0.05);
+    b.rotation.set(
+      (attacking ? 0.5 * Math.sin(ap * Math.PI) : variant === "zombie" ? 0.12 : 0.05) + (stunned ? -0.25 : 0),
+      Math.sin(t * 1.3) * 0.12 * (1 - walkAmp),
+      Math.sin(t * 1.7) * 0.05,
+    );
     if (legL.current) legL.current.rotation.x = gait;
     if (legR.current) legR.current.rotation.x = -gait;
-    const reach = attacking ? -1.9 + Math.sin(ap * Math.PI) * 0.9 : stunned ? -0.4 : -1.35 + Math.sin(t * 1.9) * 0.12;
-    if (armL.current) armL.current.rotation.x = reach;
-    if (armR.current) armR.current.rotation.x = reach + (attacking ? 0.2 : Math.sin(t * 2.3) * 0.1);
-    if (head.current) head.current.rotation.set(0.25 + Math.sin(t * 0.9) * 0.1, Math.sin(t * 1.1) * 0.35, Math.sin(t * 1.5) * 0.2);
+    if (variant === "zombie") {
+      const reach = attacking ? -1.9 + Math.sin(ap * Math.PI) * 0.9 : stunned ? -0.4 : -1.35 + Math.sin(t * 1.9) * 0.12;
+      if (armL.current) armL.current.rotation.x = reach;
+      if (armR.current) armR.current.rotation.x = reach + (attacking ? 0.2 : Math.sin(t * 2.3) * 0.1);
+    } else {
+      // Raider: arms pump as he runs, knife arm stabs.
+      if (armL.current) armL.current.rotation.x = -gait * 1.1;
+      if (armR.current) armR.current.rotation.x = attacking ? -1.7 * Math.sin(ap * Math.PI) : gait * 1.1 - 0.3;
+    }
+    if (head.current) head.current.rotation.set(0.25 + Math.sin(t * 0.9) * 0.1, Math.sin(t * 1.1) * 0.35 * (variant === "zombie" ? 1 : 0.3), Math.sin(t * 1.5) * 0.2 * (variant === "zombie" ? 1 : 0));
   });
-
-  const click = () => {
-    engine.p.lock = true;
-    engine.p.target = id;
-    heroAct(engine.selected, "light");
-  };
 
   return (
     <group
       ref={root}
-      scale={1.15}
+      scale={L.scale}
       onClick={(ev) => {
         ev.stopPropagation();
-        click();
+        engine.p.lock = true;
+        engine.p.target = id;
+        heroAct(engine.selected, "light");
       }}
       onPointerOver={() => {
         document.body.style.cursor = "crosshair";
@@ -192,44 +222,58 @@ function Zombie({ index }: { index: number }) {
         <group ref={legL} position={[-0.05, 0.22, 0]}>
           <mesh position={[0, -0.1, 0]}>
             <cylinderGeometry args={[0.035, 0.03, 0.22, 6]} />
-            <meshStandardMaterial color="#2c2a2a" roughness={1} />
+            <meshStandardMaterial color={L.leg} roughness={1} />
           </mesh>
         </group>
         <group ref={legR} position={[0.05, 0.22, 0]}>
           <mesh position={[0, -0.1, 0]}>
             <cylinderGeometry args={[0.035, 0.03, 0.22, 6]} />
-            <meshStandardMaterial color="#2c2a2a" roughness={1} />
+            <meshStandardMaterial color={L.leg} roughness={1} />
           </mesh>
         </group>
         <mesh position={[0, 0.34, 0]}>
           <cylinderGeometry args={[0.065, 0.09, 0.22, 8]} />
-          <meshStandardMaterial color={RAGS} roughness={1} />
+          <meshStandardMaterial color={L.robe} roughness={1} />
         </mesh>
-        <mesh position={[0.04, 0.28, 0.08]} rotation={[0, 0, 0.4]}>
-          <boxGeometry args={[0.07, 0.02, 0.01]} />
-          <meshStandardMaterial color="#7a1d1d" emissive="#4a0f0f" emissiveIntensity={0.6} />
-        </mesh>
+        {variant === "zombie" && (
+          <mesh position={[0.04, 0.28, 0.08]} rotation={[0, 0, 0.4]}>
+            <boxGeometry args={[0.07, 0.02, 0.01]} />
+            <meshStandardMaterial color="#7a1d1d" emissive="#4a0f0f" emissiveIntensity={0.6} />
+          </mesh>
+        )}
         <group ref={armL} position={[-0.09, 0.42, 0]}>
           <mesh position={[0, -0.1, 0]}>
             <cylinderGeometry args={[0.02, 0.016, 0.22, 5]} />
-            <meshStandardMaterial color={SKIN} roughness={1} />
+            <meshStandardMaterial color={L.skin} roughness={1} />
           </mesh>
         </group>
         <group ref={armR} position={[0.09, 0.42, 0]}>
           <mesh position={[0, -0.1, 0]}>
             <cylinderGeometry args={[0.02, 0.016, 0.22, 5]} />
-            <meshStandardMaterial color={SKIN} roughness={1} />
+            <meshStandardMaterial color={L.skin} roughness={1} />
           </mesh>
+          {variant === "villain" && (
+            <mesh position={[0, -0.24, 0.04]} rotation={[0.3, 0, 0]}>
+              <boxGeometry args={[0.014, 0.16, 0.03]} />
+              <meshStandardMaterial color="#c9ccd0" metalness={0.8} roughness={0.35} />
+            </mesh>
+          )}
         </group>
         <group ref={head} position={[0, 0.5, 0.01]}>
           <mesh>
             <sphereGeometry args={[0.055, 10, 10]} />
-            <meshStandardMaterial color={SKIN} roughness={1} />
+            <meshStandardMaterial color={L.skin} roughness={1} />
           </mesh>
+          {variant === "villain" && (
+            <mesh position={[0, 0.012, -0.012]}>
+              <coneGeometry args={[0.07, 0.11, 8]} />
+              <meshStandardMaterial color={L.robe} roughness={1} />
+            </mesh>
+          )}
           {[-0.022, 0.022].map((x) => (
             <mesh key={x} position={[x, 0.008, 0.048]}>
               <sphereGeometry args={[0.011, 6, 6]} />
-              <meshStandardMaterial color="#e6f5b0" emissive="#cfe88a" emissiveIntensity={4} toneMapped={false} />
+              <meshStandardMaterial color={L.eye} emissive={L.eye} emissiveIntensity={4} toneMapped={false} />
             </mesh>
           ))}
         </group>
@@ -242,7 +286,10 @@ export function Zombies() {
   return (
     <>
       {Array.from({ length: ZOMBIE_COUNT }, (_, i) => (
-        <Zombie key={i} index={i} />
+        <Foe key={`z${i}`} id={`z${i}`} index={i} variant="zombie" />
+      ))}
+      {Array.from({ length: VILLAIN_COUNT }, (_, i) => (
+        <Foe key={`v${i}`} id={`v${i}`} index={i} variant="villain" />
       ))}
     </>
   );

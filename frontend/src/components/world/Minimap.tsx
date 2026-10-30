@@ -54,7 +54,17 @@ export function Minimap({ selected, scale = 1, tick = 0 }: { selected: Tile | nu
       ctx.arc(W / 2 + x * k, H / 2 + z * k, r, 0, Math.PI * 2);
       ctx.fill();
     };
-    for (const e of Object.values(engine.enemies)) if (e.alive) dot(e.x, e.z, e.kind === "monster" ? "#ff4a3a" : "#9be36b", e.kind === "monster" ? 3.5 * scale : 2 * scale);
+    const EDOT: Record<string, [string, number]> = {
+      monster: ["#ff4a3a", 3.5],
+      zombie: ["#9be36b", 2],
+      villain: ["#ffb347", 2.2],
+      boss: ["#ffd24a", 5],
+    };
+    for (const e of Object.values(engine.enemies)) {
+      if (!e.alive) continue;
+      const [c, r] = EDOT[e.kind];
+      dot(e.x, e.z, c, r * scale);
+    }
     dot(engine.pos.warden.x, engine.pos.warden.z, "#34e0c0", 3 * scale);
     dot(engine.pos.sentinel.x, engine.pos.sentinel.z, "#ff9a3c", 3 * scale);
   }, [selected, scale, tick, W, H]);
