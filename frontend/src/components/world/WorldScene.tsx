@@ -1,14 +1,19 @@
 "use client";
 
 import { OrbitControls, Sparkles } from "@react-three/drei";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import type { Group as ThreeGroup } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { Color, InstancedMesh, Object3D } from "three";
 import { CattlePen, Crow, Deer, Wolf } from "./Animals";
 import { AshenWarden, IronSentinel } from "./Characters";
 import { Bonfire, DeadTree, Graveyard, Lantern, Well } from "./DarkVillage";
+import { CIVILIANS, Civilian } from "./Civilians";
+import { Effect } from "./effects";
 import { Monster } from "./Monster";
+import { engine, tick } from "./battleEngine";
+import { ImpactSparks, Projectiles } from "./Projectiles";
 import { Bridge, ResourceMarker } from "./landmarks";
 import { Mountains } from "./Mountains";
 import { Crystal, House, Tower, Wheat } from "./props";
@@ -16,6 +21,9 @@ import {
   BATTLE,
   GRAVEYARD,
   HEX_SIZE,
+  MONSTER_XZ,
+  SENTINEL_XZ,
+  WARDEN_XZ,
   MAP_RADIUS,
   PEN,
   TILES,
@@ -234,6 +242,19 @@ const CROWS = Array.from({ length: 6 }, (_, i) => ({
 
 const pick = (pred: (t: Tile) => boolean) => TILES.filter(pred).sort((a, b) => a.ring - b.ring)[0];
 
+/** Runs the battle simulation once per frame, and shakes the world on heavy hits. */
+function BattleDriver({ world }: { world: React.RefObject<ThreeGroup | null> }) {
+  useFrame(({ clock }, delta) => {
+    tick(clock.elapsedTime, Math.min(delta, 0.1));
+    const w = world.current;
+    if (w) {
+      const s = engine.shake * 0.06;
+      w.position.set(Math.sin(clock.elapsedTime * 90) * s, Math.sin(clock.elapsedTime * 77) * s * 0.6, 0);
+    }
+  });
+  return null;
+}
+
 /** Moves the camera to the battle whenever `focusKey` changes. */
 function CameraRig({ focusKey }: { focusKey: number }) {
   const camera = useThree((s) => s.camera);
@@ -258,11 +279,32 @@ export function WorldScene({
   onClear: () => void;
   focusKey?: number;
 }) {
+  const worldRef = useRef<ThreeGroup>(null);
   const face = (a: [number, number], b: [number, number]) => Math.atan2(b[0] - a[0], b[1] - a[1]);
-  const wardenXZ: [number, number] = [BATTLE.x - 0.95, BATTLE.z - 0.25];
-  const sentinelXZ: [number, number] = [BATTLE.x - 0.5, BATTLE.z + 0.8];
-  const monsterXZ: [number, number] = [BATTLE.x + 1.35, BATTLE.z];
+  const wardenXZ = WARDEN_XZ;
+  const sentinelXZ = SENTINEL_XZ;
+  const monsterXZ = MONSTER_XZ;
   const at = (xz: [number, number]): V3 => [xz[0], groundAt(xz[0], xz[1]), xz[1]];
+
+  // Local (hero-space) offset -> world position, so projectiles leave the right hand/muzzle.
+  const toWorld = (xz: [number, number], yaw: number, scale: number, local: V3): V3 => {
+    const [lx, ly, lz] = local.map((v) => v * scale) as V3;
+    return [
+      xz[0] + lx * Math.cos(yaw) + lz * Math.sin(yaw),
+      groundAt(xz[0], xz[1]) + ly,
+      xz[1] - lx * Math.sin(yaw) + lz * Math.cos(yaw),
+    ];
+  };
+  const wardenYaw = face(wardenXZ, monsterXZ);
+  const sentinelYaw = face(sentinelXZ, monsterXZ);
+  const boltFrom = toWorld(wardenXZ, wardenYaw, 1.1, [-0.4, 1.0, 0.15]);
+  const shellFrom = toWorld(sentinelXZ, sentinelYaw, 1.15, [0.3, 0.86, 0.36]);
+  const arrowFrom = toWorld(wardenXZ, wardenYaw, 1.1, [-0.1, 0.9, 0.5]);
+  const wardenBase = at(wardenXZ);
+  const sentinelBase = at(sentinelXZ);
+  const monsterBase = at(monsterXZ);
+  const monsterChest: V3 = [monsterBase[0], monsterBase[1] + 1.1, monsterBase[2]];
+  const monsterHead: V3 = [monsterBase[0], monsterBase[1] + 1.75, monsterBase[2]];
 
   const { bridges, markers } = useMemo(() => {
     const water = (zTarget: number) =>
@@ -288,6 +330,8 @@ export function WorldScene({
       <directionalLight position={[10, 6, -6]} intensity={0.5} color="#4f8f9c" />
       <hemisphereLight args={["#5d7a90", "#1d2418", 0.5]} />
 
+      <BattleDriver world={worldRef} />
+      <group ref={worldRef}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
         <circleGeometry args={[MAP_RADIUS * 2.4, 48]} />
         <meshStandardMaterial color="#0a0c10" roughness={1} />
@@ -320,9 +364,28 @@ export function WorldScene({
           ),
       )}
 
-      <AshenWarden position={at(wardenXZ)} facing={face(wardenXZ, monsterXZ)} fight />
-      <IronSentinel position={at(sentinelXZ)} facing={face(sentinelXZ, monsterXZ)} fight />
+      <AshenWarden position={at(wardenXZ)} facing={face(wardenXZ, monsterXZ)} />
+      <IronSentinel position={at(sentinelXZ)} facing={face(sentinelXZ, monsterXZ)} />
       <Monster position={at(monsterXZ)} facing={face(monsterXZ, wardenXZ)} />
+      <Projectiles boltFrom={boltFrom} arrowFrom={arrowFrom} shellFrom={shellFrom} target={monsterChest} />
+      <ImpactSparks
+        positions={{
+          monster: monsterChest,
+          warden: [wardenBase[0], wardenBase[1] + 0.6, wardenBase[2]],
+          sentinel: [sentinelBase[0], sentinelBase[1] + 0.6, sentinelBase[2]],
+        }}
+      />
+      <Effect name="wardenCast" position={boltFrom} />
+      <Effect name="wardenBolt" position={monsterChest} />
+      <Effect name="sentinelMuzzle" position={shellFrom} />
+      <Effect name="shellImpact" position={monsterChest} />
+      <Effect name="monsterRoar" position={monsterHead} />
+      <Effect name="hitSpark" position={monsterChest} />
+
+      {CIVILIANS.map((c, i) => (
+        <Civilian key={i} {...c} phase={i * 3.1} />
+      ))}
+
       <Bonfire x={BATTLE.x - 1.9} z={BATTLE.z + 1.0} />
 
       <CattlePen center={[PEN.x, PEN.z]} />
@@ -348,6 +411,8 @@ export function WorldScene({
 
       <Sparkles count={150} scale={[22, 6, 22]} position={[0, 2.5, 0]} size={2} speed={0.12} color="#9aa3ad" opacity={0.35} />
       <Sparkles count={110} scale={[22, 5, 22]} position={[0, 2, 0]} size={3} speed={0.3} color="#2de2c0" opacity={0.6} />
+
+      </group>
 
       <CameraRig focusKey={focusKey} />
       <OrbitControls
