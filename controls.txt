@@ -1,0 +1,28 @@
+KEYBOARD & MOUSE CONTROLS
+Action	Key / Button
+Move Forward	W
+Move Backward	S
+Move Left	A
+Move Right	D
+Camera Control	Mouse Movement
+Light Attack	Left Mouse Button
+Heavy Attack	Shift + Left Mouse Button
+Strong Attack / Charge	Hold Shift + Left Mouse Button
+Block / Guard	Right Mouse Button
+Parry	Q
+Dodge / Roll	Space
+Sprint	Left Shift
+Lock On / Unlock Target	Middle Mouse Button
+Switch Target	V
+Interact	F
+Use Quick Item	R
+Previous Quick Item	Mouse Wheel Down
+Next Quick Item	Mouse Wheel Up
+Weapon Skill	E
+Two-Hand Weapon	C
+Inventory	I
+Character Status	Tab
+Equipment	K
+Map	M
+Gestures	G
+Pause / Settings	Esc
