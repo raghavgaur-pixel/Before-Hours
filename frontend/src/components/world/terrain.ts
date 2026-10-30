@@ -54,6 +54,9 @@ export const TERRAIN_HEIGHT: Record<Terrain, number> = {
 };
 
 export const BATTLE = { x: 0.2, z: 3.1 };
+export const WARDEN_XZ: [number, number] = [BATTLE.x - 0.95, BATTLE.z - 0.25];
+export const SENTINEL_XZ: [number, number] = [BATTLE.x - 0.5, BATTLE.z + 0.8];
+export const MONSTER_XZ: [number, number] = [BATTLE.x + 1.35, BATTLE.z];
 export const PEN = { x: -2.6, z: 3.0 };
 export const GRAVEYARD = { x: -3.9, z: -0.9 };
 export const CLEARINGS = [
