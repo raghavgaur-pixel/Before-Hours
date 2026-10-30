@@ -52,16 +52,16 @@ export function Crystal({ position }: { position: V3 }) {
   );
 }
 
-export function House({ position, rotation = 0 }: { position: V3; rotation?: number }) {
+export function House({ position, rotation = 0, scale = 1.35 }: { position: V3; rotation?: number; scale?: number }) {
   return (
-    <group position={position} rotation={[0, rotation, 0]}>
+    <group position={position} rotation={[0, rotation, 0]} scale={scale}>
       <mesh position={[0, 0.11, 0]}>
         <boxGeometry args={[0.3, 0.22, 0.25]} />
-        <meshStandardMaterial color="#3a2d27" roughness={0.9} />
+        <meshStandardMaterial color="#5b4637" roughness={0.9} />
       </mesh>
       <mesh position={[0, 0.32, 0]} rotation={[0, Math.PI / 4, 0]}>
         <coneGeometry args={[0.27, 0.22, 4]} />
-        <meshStandardMaterial color="#262c38" roughness={0.8} flatShading />
+        <meshStandardMaterial color="#2f3646" roughness={0.8} flatShading />
       </mesh>
       <mesh position={[0.06, 0.12, 0.126]}>
         <boxGeometry args={[0.07, 0.07, 0.01]} />
@@ -73,7 +73,7 @@ export function House({ position, rotation = 0 }: { position: V3; rotation?: num
 
 export function Tower({ position }: { position: V3 }) {
   return (
-    <group position={position}>
+    <group position={position} scale={1.5}>
       <mesh position={[0, 0.35, 0]}>
         <boxGeometry args={[0.34, 0.7, 0.34]} />
         <meshStandardMaterial color="#3d3a3a" roughness={0.9} />
