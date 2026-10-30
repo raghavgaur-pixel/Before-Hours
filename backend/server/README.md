@@ -103,11 +103,11 @@ Content-Type: application/json
 
 1. **Install dependencies:**
    ```bash
-   npm --prefix apps/server install
+   npm --prefix backend/server install
    ```
 
 2. **Configure environment:**
-   Copy `.env.example` to `.env` in `apps/server/` and fill in your Supabase database credentials:
+   Copy `.env.example` to `.env` in `backend/server/` and fill in your Supabase database credentials:
    ```env
    DATABASE_URL="postgresql://postgres.[YOUR-PROJECT]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true"
    DIRECT_URL="postgresql://postgres.[YOUR-PROJECT]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres"
@@ -116,19 +116,19 @@ Content-Type: application/json
 3. **Prisma commands:**
    - Push schema to Supabase:
      ```bash
-     npm --prefix apps/server run prisma:push
+     npm --prefix backend/server run prisma:push
      ```
    - Generate Prisma Client:
      ```bash
-     npm --prefix apps/server run prisma:generate
+     npm --prefix backend/server run prisma:generate
      ```
 
 4. **Start Development Server:**
    ```bash
-   npm --prefix apps/server run dev
+   npm --prefix backend/server run dev
    ```
 
 5. **Run Tests:**
    ```bash
-   npm --prefix apps/server run test
+   npm --prefix backend/server run test
    ```
