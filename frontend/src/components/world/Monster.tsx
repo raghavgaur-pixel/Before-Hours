@@ -6,6 +6,7 @@ import { useRef } from "react";
 import type { Group, Mesh, MeshBasicMaterial, PointLight } from "three";
 import { ease, hold, lunge, seg, swingAngle } from "./battle";
 import { engine, heroAct, hitFlash, progress } from "./battleEngine";
+import { HEROES } from "./battleEngine";
 import { groundAt } from "./terrain";
 
 const FLESH = "#2a2025";
@@ -52,7 +53,7 @@ export function Monster() {
     const e = engine.enemies.monster;
     r.position.set(e.x, groundAt(e.x, e.z), e.z);
     if (e.alive) {
-      const near = [engine.pos.warden, engine.pos.sentinel].sort(
+      const near = HEROES.map((h) => engine.pos[h]).sort(
         (a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z),
       )[0];
       const want = Math.atan2(near.x - e.x, near.z - e.z);

@@ -1,10 +1,11 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { Suspense, useRef } from "react";
 import type { Group } from "three";
 import {
   VILLAIN_COUNT,
+  aliveHeroes,
   ZOMBIE_COUNT,
   emit,
   engine,
@@ -17,6 +18,7 @@ import {
   zombieSpawn,
   type HeroId,
 } from "./battleEngine";
+import { SkinModel } from "./models";
 import { groundAt, isWalkable } from "./terrain";
 
 type Variant = "zombie" | "villain";
@@ -74,9 +76,16 @@ function Foe({ id, index, variant }: { id: string; index: number; variant: Varia
         s.deadT = 0;
       }
       s.deadT += dt;
-      b.rotation.x = -Math.min(1.5, s.deadT * 3);
-      b.position.y = -Math.min(0.12, s.deadT * 0.1);
-      g.visible = s.deadT < 4;
+      // Staggers back, arms flung wide, lies still, then crumbles away.
+      const fall = Math.min(1, s.deadT / 0.45);
+      const ease = 1 - Math.pow(1 - fall, 3);
+      b.rotation.set(-1.55 * ease, Math.sin(s.deadT * 6) * 0.2 * (1 - fall), 0);
+      b.position.set(0, -0.1 * ease, -0.18 * ease);
+      if (armL.current) armL.current.rotation.x = -2.6 * ease;
+      if (armR.current) armR.current.rotation.x = -2.6 * ease;
+      const shrink = Math.min(1, Math.max(0, (s.deadT - 1.6) / 1.0));
+      g.scale.setScalar(L.scale * (1 - shrink * shrink));
+      g.visible = s.deadT < 2.7;
       g.position.set(e.x, groundAt(e.x, e.z), e.z);
       return;
     }
@@ -86,7 +95,8 @@ function Foe({ id, index, variant }: { id: string; index: number; variant: Varia
       e.x = sx;
       e.z = sz;
       g.visible = true;
-      b.position.y = 0;
+      g.scale.setScalar(L.scale);
+      b.position.set(0, 0, 0);
       b.rotation.x = 0;
     }
 
@@ -104,10 +114,10 @@ function Foe({ id, index, variant }: { id: string; index: number; variant: Varia
           }
         });
       }
-      const heroes = (["warden", "sentinel"] as HeroId[]).sort(
+      const heroes = aliveHeroes().sort(
         (a, c) => Math.hypot(engine.pos[a].x - e.x, engine.pos[a].z - e.z) - Math.hypot(engine.pos[c].x - e.x, engine.pos[c].z - e.z),
       );
-      const hd = Math.hypot(engine.pos[heroes[0]].x - e.x, engine.pos[heroes[0]].z - e.z);
+      const hd = heroes.length ? Math.hypot(engine.pos[heroes[0]].x - e.x, engine.pos[heroes[0]].z - e.z) : 99;
       if (hd < L.aggro) {
         s.kind = "hero";
         s.hero = heroes[0];
@@ -185,7 +195,7 @@ function Foe({ id, index, variant }: { id: string; index: number; variant: Varia
     b.rotation.set(
       (attacking ? 0.5 * Math.sin(ap * Math.PI) : variant === "zombie" ? 0.12 : 0.05) + (stunned ? -0.25 : 0),
       Math.sin(t * 1.3) * 0.12 * (1 - walkAmp),
-      Math.sin(t * 1.7) * 0.05,
+      Math.sin(t * 1.7) * 0.05 + (variant === "villain" ? gait * 0.14 : 0),
     );
     if (legL.current) legL.current.rotation.x = gait;
     if (legR.current) legR.current.rotation.x = -gait;
@@ -219,64 +229,59 @@ function Foe({ id, index, variant }: { id: string; index: number; variant: Varia
       }}
     >
       <group ref={body}>
-        <group ref={legL} position={[-0.05, 0.22, 0]}>
-          <mesh position={[0, -0.1, 0]}>
-            <cylinderGeometry args={[0.035, 0.03, 0.22, 6]} />
-            <meshStandardMaterial color={L.leg} roughness={1} />
+        {variant === "villain" ? (
+          // Raiders are dark knights in the Veylorn armour, tinted blood-red.
+          <Suspense fallback={null}>
+            <SkinModel url="/models/veylorn.glb" scale={0.42} y={0.4} rotY={0} tint="#d8857a" />
+          </Suspense>
+        ) : (
+          <>
+          <group ref={legL} position={[-0.05, 0.22, 0]}>
+            <mesh position={[0, -0.1, 0]}>
+              <cylinderGeometry args={[0.035, 0.03, 0.22, 6]} />
+              <meshStandardMaterial color={L.leg} roughness={1} />
+            </mesh>
+          </group>
+          <group ref={legR} position={[0.05, 0.22, 0]}>
+            <mesh position={[0, -0.1, 0]}>
+              <cylinderGeometry args={[0.035, 0.03, 0.22, 6]} />
+              <meshStandardMaterial color={L.leg} roughness={1} />
+            </mesh>
+          </group>
+          <mesh position={[0, 0.34, 0]}>
+            <cylinderGeometry args={[0.065, 0.09, 0.22, 8]} />
+            <meshStandardMaterial color={L.robe} roughness={1} />
           </mesh>
-        </group>
-        <group ref={legR} position={[0.05, 0.22, 0]}>
-          <mesh position={[0, -0.1, 0]}>
-            <cylinderGeometry args={[0.035, 0.03, 0.22, 6]} />
-            <meshStandardMaterial color={L.leg} roughness={1} />
-          </mesh>
-        </group>
-        <mesh position={[0, 0.34, 0]}>
-          <cylinderGeometry args={[0.065, 0.09, 0.22, 8]} />
-          <meshStandardMaterial color={L.robe} roughness={1} />
-        </mesh>
-        {variant === "zombie" && (
           <mesh position={[0.04, 0.28, 0.08]} rotation={[0, 0, 0.4]}>
             <boxGeometry args={[0.07, 0.02, 0.01]} />
             <meshStandardMaterial color="#7a1d1d" emissive="#4a0f0f" emissiveIntensity={0.6} />
           </mesh>
+          <group ref={armL} position={[-0.09, 0.42, 0]}>
+            <mesh position={[0, -0.1, 0]}>
+              <cylinderGeometry args={[0.02, 0.016, 0.22, 5]} />
+              <meshStandardMaterial color={L.skin} roughness={1} />
+            </mesh>
+          </group>
+          <group ref={armR} position={[0.09, 0.42, 0]}>
+            <mesh position={[0, -0.1, 0]}>
+              <cylinderGeometry args={[0.02, 0.016, 0.22, 5]} />
+              <meshStandardMaterial color={L.skin} roughness={1} />
+            </mesh>
+          </group>
+          <group ref={head} position={[0, 0.5, 0.01]}>
+            <mesh>
+              <sphereGeometry args={[0.055, 10, 10]} />
+              <meshStandardMaterial color={L.skin} roughness={1} />
+            </mesh>
+            {[-0.022, 0.022].map((x) => (
+              <mesh key={x} position={[x, 0.008, 0.048]}>
+                <sphereGeometry args={[0.011, 6, 6]} />
+                <meshStandardMaterial color={L.eye} emissive={L.eye} emissiveIntensity={4} toneMapped={false} />
+              </mesh>
+            ))}
+          </group>
+          </>
         )}
-        <group ref={armL} position={[-0.09, 0.42, 0]}>
-          <mesh position={[0, -0.1, 0]}>
-            <cylinderGeometry args={[0.02, 0.016, 0.22, 5]} />
-            <meshStandardMaterial color={L.skin} roughness={1} />
-          </mesh>
-        </group>
-        <group ref={armR} position={[0.09, 0.42, 0]}>
-          <mesh position={[0, -0.1, 0]}>
-            <cylinderGeometry args={[0.02, 0.016, 0.22, 5]} />
-            <meshStandardMaterial color={L.skin} roughness={1} />
-          </mesh>
-          {variant === "villain" && (
-            <mesh position={[0, -0.24, 0.04]} rotation={[0.3, 0, 0]}>
-              <boxGeometry args={[0.014, 0.16, 0.03]} />
-              <meshStandardMaterial color="#c9ccd0" metalness={0.8} roughness={0.35} />
-            </mesh>
-          )}
-        </group>
-        <group ref={head} position={[0, 0.5, 0.01]}>
-          <mesh>
-            <sphereGeometry args={[0.055, 10, 10]} />
-            <meshStandardMaterial color={L.skin} roughness={1} />
-          </mesh>
-          {variant === "villain" && (
-            <mesh position={[0, 0.012, -0.012]}>
-              <coneGeometry args={[0.07, 0.11, 8]} />
-              <meshStandardMaterial color={L.robe} roughness={1} />
-            </mesh>
-          )}
-          {[-0.022, 0.022].map((x) => (
-            <mesh key={x} position={[x, 0.008, 0.048]}>
-              <sphereGeometry args={[0.011, 6, 6]} />
-              <meshStandardMaterial color={L.eye} emissive={L.eye} emissiveIntensity={4} toneMapped={false} />
-            </mesh>
-          ))}
-        </group>
       </group>
     </group>
   );

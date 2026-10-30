@@ -6,7 +6,7 @@ import { Color, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, type Mater
 import { SkeletonUtils } from "three-stdlib";
 
 /** Clone a loaded scene and make its materials safe for this lighting setup. */
-function prepare(scene: Object3D, opts: { flat?: boolean; opacity?: number } = {}) {
+function prepare(scene: Object3D, opts: { flat?: boolean; opacity?: number; tint?: string } = {}) {
   const clone = SkeletonUtils.clone(scene);
   clone.traverse((o) => {
     const m = o as Mesh;
@@ -17,6 +17,12 @@ function prepare(scene: Object3D, opts: { flat?: boolean; opacity?: number } = {
       (mat as { transmission: number }).transmission = 0;
       mat.transparent = true;
       mat.opacity = Math.min(mat.opacity, 0.75);
+    }
+    if (opts.tint) {
+      // Villain variant: darken towards the tint and add a faint ember glow.
+      mat.color = (mat.color ?? new Color("#fff")).clone().multiply(new Color(opts.tint));
+      mat.emissive = new Color("#3a0806");
+      mat.emissiveIntensity = 0.5;
     }
     if (opts.opacity !== undefined) {
       mat.transparent = true;
@@ -31,9 +37,9 @@ function prepare(scene: Object3D, opts: { flat?: boolean; opacity?: number } = {
 }
 
 /** A static, scanned character mesh that replaces the code-built body. */
-export function SkinModel({ url, scale, y, rotY }: { url: string; scale: number; y: number; rotY: number }) {
+export function SkinModel({ url, scale, y, rotY, tint }: { url: string; scale: number; y: number; rotY: number; tint?: string }) {
   const { scene } = useGLTF(url);
-  const obj = useMemo(() => prepare(scene), [scene]);
+  const obj = useMemo(() => prepare(scene, { tint }), [scene, tint]);
   return (
     <group rotation={[0, rotY, 0]} position={[0, y, 0]} scale={scale}>
       <primitive object={obj} />

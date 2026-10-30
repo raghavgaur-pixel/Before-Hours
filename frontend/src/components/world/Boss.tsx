@@ -6,6 +6,7 @@ import { useRef } from "react";
 import type { Group, Mesh, MeshBasicMaterial, PointLight } from "three";
 import { ease, hold, lunge, seg, swingAngle } from "./battle";
 import { engine, heroAct, hitFlash, progress } from "./battleEngine";
+import { HEROES } from "./battleEngine";
 import { groundAt } from "./terrain";
 
 const GOLD = "#c9a24b";
@@ -88,7 +89,7 @@ export function Boss() {
     const t = clock.elapsedTime;
     const now = engine.now;
     const pr = engine.prog;
-    const show = pr.boss === "arrived" || (pr.boss === "dead" && now - pr.bossDiedAt < 7);
+    const show = pr.boss === "arrived" || (pr.boss === "dead" && now - pr.bossDiedAt < 4.6);
     r.visible = show;
     if (!show) return;
 
@@ -96,13 +97,16 @@ export function Boss() {
     const risen = rise >= 1;
     r.position.set(e.x, groundAt(e.x, e.z) - (1 - rise) * 3.4, e.z);
     if (e.alive && risen) {
-      const near = [engine.pos.warden, engine.pos.sentinel].sort(
+      const near = HEROES.map((h) => engine.pos[h]).sort(
         (a, b) => Math.hypot(a.x - e.x, a.z - e.z) - Math.hypot(b.x - e.x, b.z - e.z),
       )[0];
       const want = Math.atan2(near.x - e.x, near.z - e.z);
       yaw.current += Math.atan2(Math.sin(want - yaw.current), Math.cos(want - yaw.current)) * 0.06;
     }
     r.rotation.y = yaw.current;
+    // After it falls, the body crumbles into gold light.
+    const crumble = pr.boss === "dead" ? seg(now - pr.bossDiedAt, 2.4, 4.4) : 0;
+    r.scale.setScalar(2.6 * (1 - crumble * crumble));
 
     const pCleave = progress("boss", "cleave");
     const pFlurry = progress("boss", "flurry");

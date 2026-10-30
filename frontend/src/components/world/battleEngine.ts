@@ -96,13 +96,17 @@ export type HeroPos = { x: number; z: number; y: number; yaw: number; speed: num
 
 const MAX_HP = { warden: 120, sentinel: 160 };
 
+/** The playable roster. Only the main character, the Stoneguard sentinel, is in the game. */
+export const HEROES: HeroId[] = ["sentinel"];
+export const MAIN_HERO: HeroId = HEROES[0];
+
 /** Where husks rise: a loose ring around the graveyard. */
 export const zombieSpawn = (i: number): [number, number] => [
   GRAVEYARD.x + Math.cos(i * 1.05 + 0.4) * 1.5,
   GRAVEYARD.z + Math.sin(i * 1.05 + 0.4) * 1.3,
 ];
 export const ZOMBIE_COUNT = 6;
-export const VILLAIN_COUNT = 3;
+export const VILLAIN_COUNT = 4;
 
 /** Raiders come in from the fields south of the village. */
 const VILLAIN_SPOTS: [number, number][] = [[-3.4, 4.4], [1.8, 5.6], [-0.8, 6.2], [3.0, 4.0], [-2.0, 5.4]];
@@ -113,9 +117,19 @@ export const villainSpawn = (i: number): [number, number] => {
 
 /** Progression: kill enemies for XP, level up to upgrade the party and weapons, reach the boss level. */
 export const XP_PER_LEVEL = 40;
-export const BOSS_LEVEL = 4;
-export const XP_VALUE = { zombie: 10, villain: 20, monster: 40, boss: 0 } as const;
-export const tierForLevel = (level: number) => Math.min(3, 1 + Math.floor(level / 2));
+export const BOSS_LEVEL = 7;
+export const XP_VALUE = { zombie: 10, villain: 15, monster: 40, boss: 0 } as const;
+/** Weapons upgrade a tier at levels 3 and 5. */
+export const tierForLevel = (level: number) => 1 + (level >= 3 ? 1 : 0) + (level >= 5 ? 1 : 0);
+
+/** Levels 1-3 are husks, 4-6 raiders, 7 the final boss. */
+export type Stage = "zombie" | "villain" | "boss";
+export const stageFor = (level: number): Stage => (level >= BOSS_LEVEL ? "boss" : level >= 4 ? "villain" : "zombie");
+export const STAGE_LABEL: Record<Stage, string> = {
+  zombie: "Stage 1 · Husks (Lv 1–3)",
+  villain: "Stage 2 · Raiders (Lv 4–6)",
+  boss: "Final · The Grafted King (Lv 7)",
+};
 export const TIER_NAME = ["", "I", "II", "III"];
 
 const zombies = Object.fromEntries(
@@ -130,7 +144,7 @@ const villains = Object.fromEntries(
   Array.from({ length: VILLAIN_COUNT }, (_, i) => {
     const [x, z] = villainSpawn(i);
     const id = `v${i}`;
-    return [id, { id, kind: "villain", x, z, hp: 70, maxHp: 70, alive: true, stunUntil: 0, chestY: 0.55, reach: 0.95, radius: 0.3 } as Enemy];
+    return [id, { id, kind: "villain", x, z, hp: 70, maxHp: 70, alive: false, stunUntil: 0, chestY: 0.55, reach: 0.95, radius: 0.3 } as Enemy];
   }),
 );
 export const ROLL_DUR = 0.55;
@@ -139,16 +153,16 @@ const yawTo = (ax: number, az: number, bx: number, bz: number) => Math.atan2(bx 
 export const engine = {
   now: 0,
   version: 0,
-  selected: "warden" as HeroId,
+  selected: "sentinel" as HeroId,
   weapon: { warden: "blade", sentinel: "hammer" } as Record<HeroId, WeaponId>,
   hp: { warden: MAX_HP.warden, sentinel: MAX_HP.sentinel } as Record<HeroId, number>,
-  maxHp: MAX_HP as Record<HeroId, number>,
+  maxHp: { warden: MAX_HP.warden, sentinel: MAX_HP.sentinel } as Record<HeroId, number>,
   pos: {
     warden: { x: WARDEN_XZ[0], z: WARDEN_XZ[1], y: 0.3, yaw: yawTo(...WARDEN_XZ, ...MONSTER_XZ), speed: 0 },
     sentinel: { x: SENTINEL_XZ[0], z: SENTINEL_XZ[1], y: 0.3, yaw: yawTo(...SENTINEL_XZ, ...MONSTER_XZ), speed: 0 },
   } as Record<HeroId, HeroPos>,
   enemies: {
-    monster: { id: "monster", kind: "monster", x: MONSTER_XZ[0], z: MONSTER_XZ[1], hp: 320, maxHp: 320, alive: true, stunUntil: 0, chestY: 1.1, reach: 3.2, radius: 0.9 },
+    monster: { id: "monster", kind: "monster", x: MONSTER_XZ[0], z: MONSTER_XZ[1], hp: 320, maxHp: 320, alive: false, stunUntil: 0, chestY: 1.1, reach: 3.2, radius: 0.9 },
     boss: { id: "boss", kind: "boss", x: 0.5, z: -4.8, hp: 600, maxHp: 600, alive: false, stunUntil: 0, chestY: 1.9, reach: 4.8, radius: 1.2 },
     ...zombies,
     ...villains,
@@ -166,9 +180,14 @@ export const engine = {
     bossAt: -9,
     bossDiedAt: -9,
   },
-  alive: true,
+  alive: false,
+  /** Fallen heroes; both down is game over. */
+  down: { warden: false, sentinel: false } as Record<HeroId, boolean>,
+  gameOver: false,
+  /** Recent deaths, for death effects: where, what, and when. */
+  deaths: [] as { t: number; x: number; z: number; kind: string; big: boolean }[],
   /** Chosen look per hero (see skins.ts). */
-  skin: { warden: "warden-classic", sentinel: "sentinel-classic" } as Record<HeroId, string>,
+  skin: { warden: "warden-classic", sentinel: "sentinel-stoneguard" } as Record<HeroId, string>,
   /** When each hero last changed weapon, to drive the swap flourish. */
   swapAt: { warden: -9, sentinel: -9 } as Record<HeroId, number>,
   victoryUntil: 0,
@@ -291,6 +310,29 @@ function impact(target: Actor, color: string, power: number) {
 // ---------------------------------------------------------------- targeting
 
 export const liveEnemies = () => Object.values(engine.enemies).filter((e) => e.alive);
+export const aliveHeroes = () => HEROES.filter((h) => !engine.down[h]);
+
+const stageActive = (e: Enemy) => (e.kind === "zombie" || e.kind === "villain") && stageFor(engine.prog.level) === e.kind;
+
+function pushDeath(x: number, z: number, kind: string, big = false) {
+  engine.deaths = [...engine.deaths.filter((d) => engine.now - d.t < 6), { t: engine.now, x, z, kind, big }];
+}
+
+/** Bring in the foes for the current stage and send the other stage's away. */
+export function applyStage() {
+  for (const e of Object.values(engine.enemies)) {
+    if (e.kind !== "zombie" && e.kind !== "villain") continue;
+    if (stageActive(e)) {
+      if (!e.alive) {
+        e.alive = true;
+        e.hp = e.maxHp;
+      }
+    } else if (e.alive) {
+      e.alive = false;
+      pushDeath(e.x, e.z, "dismiss");
+    }
+  }
+}
 const distTo = (hero: HeroId, e: { x: number; z: number }) => Math.hypot(e.x - engine.pos[hero].x, e.z - engine.pos[hero].z);
 
 /** Lock-on target if valid, else the closest enemy the hero is roughly facing. */
@@ -362,12 +404,23 @@ function levelUp() {
   }
   engine.p.maxStamina += 10;
   engine.p.stamina = engine.p.maxStamina;
+  engine.down.warden = false;
+  engine.down.sentinel = false;
   const tier = tierForLevel(pr.level);
   const upgraded = tier > pr.tier;
   pr.tier = tier;
   say(`LEVEL UP! Party level ${pr.level}${upgraded ? ` · weapons upgraded to tier ${TIER_NAME[tier]}` : ""}`);
-  showBanner(`LEVEL ${pr.level}`, upgraded ? `Your weapons are now tier ${TIER_NAME[tier]}` : "Health, stamina and damage increased");
+  const stage = stageFor(pr.level);
+  showBanner(
+    `LEVEL ${pr.level}`,
+    stage !== stageFor(pr.level - 1)
+      ? STAGE_LABEL[stage]
+      : upgraded
+        ? `Your weapons are now tier ${TIER_NAME[tier]}`
+        : "Health, stamina and damage increased",
+  );
   if (pr.level >= BOSS_LEVEL) onBossLevel();
+  else applyStage();
 }
 
 /** The final boss rises from the north once the party reaches BOSS_LEVEL. Minions stop respawning. */
@@ -407,6 +460,13 @@ export function addXp(n: number) {
   emit();
 }
 
+/** Start the whole game over from level 1. */
+export function restartGame() {
+  resetProgress();
+  showBanner("A NEW NIGHT BEGINS", "Stage 1 · Husks (Lv 1–3)", 4);
+  emit();
+}
+
 export function resetProgress() {
   const pr = engine.prog;
   pr.xp = 0;
@@ -424,21 +484,37 @@ export function resetProgress() {
   engine.anim.boss = undefined;
   for (const en of Object.values(engine.enemies)) {
     if (en.id === "boss") continue;
-    en.alive = true;
+    en.alive = false;
     en.hp = en.maxHp;
   }
   engine.enemies.monster.x = MONSTER_XZ[0];
   engine.enemies.monster.z = MONSTER_XZ[1];
   engine.anim.monster = undefined;
-  engine.alive = true;
+  engine.alive = false;
+  engine.down.warden = false;
+  engine.down.sentinel = false;
+  engine.gameOver = false;
+  engine.selected = MAIN_HERO;
+  applyStage();
+  pr.banner = null;
+  queue.length = 0;
+  engine.anim = {};
+  engine.p.lock = false;
+  engine.p.target = null;
+  engine.pos.warden.x = WARDEN_XZ[0];
+  engine.pos.warden.z = WARDEN_XZ[1];
+  engine.pos.sentinel.x = SENTINEL_XZ[0];
+  engine.pos.sentinel.z = SENTINEL_XZ[1];
+  engine.log = [];
   say("Progress reset");
   emit();
 }
 
-const RESPAWN: Record<string, number> = { zombie: 5, villain: 8, monster: 10 };
+const RESPAWN: Record<string, number> = { zombie: 5, villain: 6, monster: 10 };
 
 function killEnemy(e: Enemy, hero: HeroId) {
   e.alive = false;
+  pushDeath(e.x, e.z, e.kind, e.kind === "boss");
   if (hero === engine.selected) engine.p.kills++;
   if (e.kind === "monster" || e.kind === "zombie" || e.kind === "villain") {
     engine.prog.kills[e.kind]++;
@@ -450,6 +526,11 @@ function killEnemy(e: Enemy, hero: HeroId) {
     engine.prog.bossDiedAt = engine.now;
     engine.shake = 1;
     engine.victoryUntil = engine.now + 8;
+    // The collapse is followed by a second, much larger golden burst as the body dissolves.
+    schedule(engine.now + 2.4, () => {
+      pushDeath(e.x, e.z, "boss", true);
+      engine.shake = 1;
+    });
     say("THE GRAFTED KING FALLS! Victory!");
     showBanner("VICTORY", "The Grafted King is slain", 5);
   } else if (e.kind === "monster") {
@@ -459,7 +540,7 @@ function killEnemy(e: Enemy, hero: HeroId) {
     engine.victoryUntil = engine.now + 5;
     say("The Gravemaw is slain!");
     schedule(engine.now + RESPAWN.monster, () => {
-      if (engine.prog.boss !== "locked") return;
+      if (engine.prog.boss !== "locked" || !stageActive(e)) return;
       e.alive = true;
       e.hp = e.maxHp;
       e.x = MONSTER_XZ[0];
@@ -477,7 +558,7 @@ function killEnemy(e: Enemy, hero: HeroId) {
       engine.p.lock = false;
     }
     schedule(engine.now + RESPAWN[e.kind], () => {
-      if (engine.prog.boss !== "locked") return;
+      if (engine.prog.boss !== "locked" || !stageActive(e)) return;
       e.alive = true;
       e.hp = e.maxHp;
       emit();
@@ -488,7 +569,7 @@ function killEnemy(e: Enemy, hero: HeroId) {
 /** An enemy swings at a hero. Handles reach, roll i-frames, parry, block and ward. */
 export function enemyHitsHero(enemyId: string, hero: HeroId, dmg: number) {
   const e = engine.enemies[enemyId];
-  if (!e || !e.alive || engine.now < e.stunUntil) return;
+  if (!e || !e.alive || engine.now < e.stunUntil || engine.down[hero]) return;
   const me = engine.pos[hero];
   if (Math.hypot(e.x - me.x, e.z - me.z) > e.reach) {
     say(`The ${e.kind === "monster" ? "Gravemaw" : "husk"} swings wide`);
@@ -525,10 +606,58 @@ export function enemyHitsHero(enemyId: string, hero: HeroId, dmg: number) {
   }
   if (mine && engine.now < p.wardUntil) d *= 0.5;
   d = Math.round(d * (0.85 + Math.random() * 0.3));
-  engine.hp[hero] = Math.max(8, engine.hp[hero] - d);
+  engine.hp[hero] = Math.max(0, engine.hp[hero] - d);
   impact(hero, "#ff4a3a", 1.4);
   engine.shake = Math.max(engine.shake, 0.55);
-  say(`The ${e.kind === "monster" ? "Gravemaw" : "husk"} ${mine && p.blocking ? "is blocked, chips" : "mauls"} the ${HERO_NAME[hero]} for ${d}`);
+  say(`The ${e.kind === "monster" ? "Gravemaw" : e.kind === "villain" ? "raider" : e.kind === "boss" ? "Grafted King" : "husk"} ${mine && p.blocking ? "is blocked, chips" : "hits"} the ${HERO_NAME[hero]} for ${d}`);
+  if (engine.hp[hero] <= 0) heroDown(hero);
+  emit();
+}
+
+function heroDown(hero: HeroId) {
+  engine.down[hero] = true;
+  engine.p.blocking = false;
+  engine.p.charging = false;
+  engine.anim[hero] = undefined;
+  engine.shake = 1;
+  pushDeath(engine.pos[hero].x, engine.pos[hero].z, "hero");
+  say(`${HERO_NAME[hero]} has fallen!`);
+  const other = HEROES.find((h) => h !== hero && !engine.down[h]);
+  if (!other) {
+    engine.gameOver = true;
+    engine.auto = false;
+    say("YOU DIED");
+  } else if (engine.selected === hero) {
+    engine.selected = other;
+    engine.p.lock = false;
+    engine.p.target = null;
+  }
+}
+
+/** After a defeat: both heroes stand again at full health, the current stage restarts. */
+export function retryAfterDeath() {
+  for (const h of ["warden", "sentinel"] as HeroId[]) {
+    engine.down[h] = false;
+    engine.hp[h] = engine.maxHp[h];
+  }
+  engine.pos.warden.x = WARDEN_XZ[0];
+  engine.pos.warden.z = WARDEN_XZ[1];
+  engine.pos.sentinel.x = SENTINEL_XZ[0];
+  engine.pos.sentinel.z = SENTINEL_XZ[1];
+  engine.p.stamina = engine.p.maxStamina;
+  engine.gameOver = false;
+  engine.selected = MAIN_HERO;
+  if (engine.prog.boss === "arrived") {
+    const b = engine.enemies.boss;
+    b.hp = b.maxHp;
+    b.x = 0.5;
+    b.z = -4.8;
+    engine.prog.bossAt = engine.now;
+    engine.anim.boss = undefined;
+    engine.nextBossAct = engine.now + 3.5;
+  } else applyStage();
+  engine.prog.banner = null;
+  say("You rise again…");
   emit();
 }
 
@@ -537,7 +666,7 @@ const COST: Record<AttackMode, number> = { light: 8, heavy: 22, strong: 30, skil
 export function heroAct(hero: HeroId, mode: AttackMode = "light", charge = 0) {
   const p = engine.p;
   const mine = hero === engine.selected;
-  if (busy(hero)) return false;
+  if (engine.down[hero] || busy(hero)) return false;
   if (mine && (engine.now < p.rollUntil || p.blocking)) return false;
   const w = currentWeapon(hero);
   const sp = SPECIALS[hero];
@@ -675,6 +804,13 @@ export function interact() {
   if (!near) return;
   const h = engine.selected;
   if (near.id === "bonfire") {
+    for (const k of ["warden", "sentinel"] as HeroId[]) {
+      if (engine.down[k]) {
+        engine.down[k] = false;
+        engine.hp[k] = engine.maxHp[k] * 0.5;
+        say(`${HERO_NAME[k]} is revived by the fire`);
+      }
+    }
     engine.hp[h] = engine.maxHp[h];
     engine.p.stamina = engine.p.maxStamina;
     say("You warm yourself by the bonfire. Fully rested.");
@@ -703,6 +839,7 @@ export const gestureProgress = () => {
 // ---------------------------------------------------------------- selection
 
 export function selectHero(h: HeroId) {
+  if (engine.down[h] || !HEROES.includes(h)) return;
   if (engine.selected !== h) {
     engine.selected = h;
     engine.p.lock = false;
@@ -759,7 +896,7 @@ export function tick(t: number, dt: number) {
 
   const p = engine.p;
   engine.shake *= Math.exp(-dt * 5);
-  const threat = engine.alive || engine.enemies.boss.alive;
+  const threat = liveEnemies().length > 0;
   engine.panic += ((threat ? 1 : 0) - engine.panic) * Math.min(1, dt * (threat ? 2.5 : 1.2));
   if (!p.sprinting && !p.blocking && !p.charging) p.stamina = Math.min(p.maxStamina, p.stamina + dt * 24);
   if (p.blocking) p.stamina = Math.max(0, p.stamina - dt * 4);
@@ -784,8 +921,8 @@ export function tick(t: number, dt: number) {
   // Monster AI: closes the distance, then picks an attack that fits the range.
   const m = engine.enemies.monster;
   if (m.alive) {
-    const heroes = (["warden", "sentinel"] as HeroId[]).sort((a, b) => distTo(a, m) - distTo(b, m));
-    const near = heroes[0];
+    const heroes = aliveHeroes().sort((a, b) => distTo(a, m) - distTo(b, m));
+    const near = heroes[0] ?? engine.selected;
     const d = distTo(near, m);
     const stunned = t < m.stunUntil;
     if (!busy("monster") && !stunned) {
@@ -826,10 +963,10 @@ export function tick(t: number, dt: number) {
   // Final boss: marches on the nearest hero and picks a heavy attack that fits the range.
   const B = engine.enemies.boss;
   if (B.alive) {
-    const near = (["warden", "sentinel"] as HeroId[]).sort((a, b) => distTo(a, B) - distTo(b, B))[0];
-    const d = distTo(near, B);
+    const near = aliveHeroes().sort((a, b) => distTo(a, B) - distTo(b, B))[0];
+    const d = near ? distTo(near, B) : 99;
     const rising = t < engine.prog.bossAt + 2.5;
-    if (!busy("boss") && t >= B.stunUntil && !rising) {
+    if (near && !busy("boss") && t >= B.stunUntil && !rising) {
       if (d > 3.6) {
         const sp = d > 7 ? 1.3 : 0.8;
         const nx = B.x + ((engine.pos[near].x - B.x) / d) * sp * dt;
@@ -855,7 +992,7 @@ export function tick(t: number, dt: number) {
   // Auto-battle: heroes pick the next ready ability that can reach their target.
   if (engine.auto && t >= engine.nextAuto && liveEnemies().length) {
     engine.nextAuto = t + 0.5;
-    for (const hero of ["warden", "sentinel"] as HeroId[]) {
+    for (const hero of aliveHeroes()) {
       if (busy(hero)) continue;
       const tgt = pickTarget(hero);
       if (!tgt) continue;
@@ -882,7 +1019,7 @@ export function tick(t: number, dt: number) {
   }
 
   for (const h of ["warden", "sentinel"] as HeroId[]) {
-    if (engine.hp[h] < engine.maxHp[h]) engine.hp[h] = Math.min(engine.maxHp[h], engine.hp[h] + dt * 1.2);
+    if (!engine.down[h] && engine.hp[h] < engine.maxHp[h]) engine.hp[h] = Math.min(engine.maxHp[h], engine.hp[h] + dt * 1.2);
     engine.pos[h].y = groundAt(engine.pos[h].x, engine.pos[h].z);
   }
 }

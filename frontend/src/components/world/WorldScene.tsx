@@ -15,9 +15,10 @@ import { FlaskThrow } from "./effectModels";
 import { Effect } from "./effects";
 import { Monster } from "./Monster";
 import { Waterfall } from "./Waterfall";
+import { DeathFx } from "./DeathFx";
 import { LevelUpFx } from "./Progression";
 import { Zombies } from "./Zombies";
-import { engine, tick } from "./battleEngine";
+import { HEROES, engine, tick } from "./battleEngine";
 import { LockReticle } from "./LockReticle";
 import { PlayerDriver, PlayerRig } from "./playerControl";
 import { ImpactSparks, Projectiles } from "./Projectiles";
@@ -361,9 +362,10 @@ export function WorldScene({
 
       <Zombies />
       <LevelUpFx />
+      <DeathFx />
       <Waterfall />
-      <AshenWarden />
-      <IronSentinel />
+      {HEROES.includes("warden") && <AshenWarden />}
+      {HEROES.includes("sentinel") && <IronSentinel />}
       <Monster />
       <Boss />
       <Projectiles />
