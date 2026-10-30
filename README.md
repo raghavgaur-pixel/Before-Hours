@@ -254,3 +254,8 @@ The following are project goals or future implementation work, not features that
 *AFTERHOURS — The world doesn't wait for you.*
 
 *Built under the Before Hours project.*
+
+
+
+npm.cmd --prefix backend/server run dev
+npm.cmd --prefix frontend run dev
