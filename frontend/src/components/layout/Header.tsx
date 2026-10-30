@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { logout, useSession } from "@/lib/auth";
 import { NavLinks } from "./NavLinks";
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const session = useSession();
+  const router = useRouter();
+  const signOut = async () => {
+    await logout();
+    router.push("/");
+  };
 
   return (
     <header className="border-b border-border bg-surface">
@@ -27,9 +35,19 @@ export function Header() {
           {open ? "Close" : "Menu"}
         </button>
 
-        <nav aria-label="Primary" className="hidden md:block">
-          <NavLinks />
-        </nav>
+        <div className="hidden items-center gap-4 md:flex">
+          <nav aria-label="Primary">
+            <NavLinks />
+          </nav>
+          {session && (
+            <div className="flex items-center gap-3 border-l border-border pl-4 text-sm">
+              <span className="text-gold">{session.username}</span>
+              <button type="button" onClick={signOut} className="text-muted hover:text-foreground">
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {open && (
@@ -39,6 +57,11 @@ export function Header() {
           className="border-t border-border px-4 py-2 md:hidden"
         >
           <NavLinks onNavigate={() => setOpen(false)} />
+          {session && (
+            <button type="button" onClick={signOut} className="mt-1 block w-full rounded px-3 py-2 text-left text-sm text-muted hover:text-foreground">
+              Sign out ({session.username})
+            </button>
+          )}
         </nav>
       )}
     </header>

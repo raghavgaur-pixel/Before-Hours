@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AuthScreen } from "@/components/auth/AuthScreen";
 
 const features = [
   {

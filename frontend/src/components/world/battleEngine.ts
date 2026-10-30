@@ -867,6 +867,13 @@ export function cycleWeapon(dir: 1 | -1) {
   selectWeapon(hero, (i + dir + list.length) % list.length);
 }
 
+/** The main character carries the player's username. */
+export function setHeroName(name: string) {
+  if (!name || HERO_NAME[MAIN_HERO] === name) return;
+  HERO_NAME[MAIN_HERO] = name;
+  emit();
+}
+
 export function selectSkin(hero: HeroId, id: string) {
   if (engine.skin[hero] === id) return;
   engine.skin[hero] = id;
