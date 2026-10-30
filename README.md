@@ -33,6 +33,8 @@ This repository is the home of the AFTERHOURS project. It documents the product 
 - [Data and domain model](#data-and-domain-model)
 - [Security and game integrity](#security-and-game-integrity)
 - [Development principles](#development-principles)
+- [Team roles and phase-by-phase ownership](#team-roles-and-phase-by-phase-ownership)
+- [Pull request strategy](#pull-request-strategy)
 - [Roadmap](#roadmap)
 - [Repository and contribution workflow](#repository-and-contribution-workflow)
 - [Glossary](#glossary)
@@ -591,6 +593,208 @@ The server must be authoritative because the browser is controlled by the player
 5. **Prefer simple infrastructure.** Do not introduce distributed systems before the MVP needs them.
 6. **Document decisions.** Significant changes to the stack, rules, or scope should be discussed and recorded.
 7. **Protect the main branch.** All contributions arrive through pull requests and maintainer review.
+
+## Team roles and phase-by-phase ownership
+
+The team is intentionally small, so responsibilities are clear but collaboration is expected. A role identifies the person accountable for driving a workstream; it does not mean that person works in isolation or owns every file in that area.
+
+### Core team
+
+| Member | Role | Primary responsibility |
+|---|---|---|
+| **Raghav** | Maintainer / Project lead | Owns product direction, scope, priorities, acceptance criteria, architecture decisions, issue creation, review coordination, and merges to `main`. Keeps contributors unblocked and prevents scope creep. |
+| **Chirrayu** | Backend | Owns the API, authentication, database integration, persistence, server-side validation, API contracts, and backend deployment. Coordinates closely with Manan on game-domain rules. |
+| **Mohit** | Frontend | Owns the web application structure, page layouts, navigation, visual system, game HUD, and player-facing interface. Coordinates map integration with Manan. |
+| **Saransh** | Testing and frontend | Owns the test strategy, automated test coverage, integration and end-to-end validation, regression checks, and frontend contributions—especially UI states, interaction flows, and accessibility/usability checks. |
+| **Manan** | Game engine | Owns the game-domain model and simulation rules: map/tile logic, resource production, construction timing, progression calculations, deterministic behavior, and simulation-worker logic in coordination with Chirrayu. |
+
+**Decision boundary:** Raghav is the final maintainer for scope and merge decisions. Chirrayu owns backend implementation decisions within the agreed architecture. Mohit owns frontend implementation decisions within the agreed UI and product direction. Saransh can request changes when behavior is untested or regressions are found. Manan owns the correctness of game-rule calculations. Cross-cutting decisions are discussed before implementation.
+
+### Phase 0 — Product lock and implementation contracts
+
+**Goal:** Remove ambiguity before parallel coding begins.
+
+- **Raghav:** Approve the MVP boundaries, prioritize the first playable loop, turn accepted requirements into issues with acceptance criteria, and resolve product questions.
+- **Chirrayu:** Propose the initial API boundaries, persistence responsibilities, authentication approach, and database constraints.
+- **Mohit:** Define the first-screen and settlement-screen user flows; identify the frontend data each screen needs.
+- **Saransh:** Write the test plan for the first playable loop; identify critical edge cases and the minimum CI checks.
+- **Manan:** Specify the first version of map, resource, production, storage, and construction rules in implementation-ready terms.
+
+**Meaningful PR opportunities (only after the decisions are agreed):**
+1. Product specification and accepted MVP rules (documentation).
+2. API and data-contract specification (documentation/types, if useful to unblock parallel work).
+3. Game-rules specification and balance configuration (documentation/configuration).
+
+Do not create separate PRs for meeting notes, tiny wording changes, or decisions that belong together. If one agreed specification is clearer as one reviewable change, keep it in one PR.
+
+### Phase 1 — Repository and technical foundation
+
+**Goal:** A clean project that every contributor can run and test locally.
+
+- **Raghav:** Confirm the stack and repository conventions; review the setup PRs and keep the initial scope lean.
+- **Chirrayu:** Establish the workspace/backend foundation, environment configuration, database connection, initial migrations, and API health endpoint.
+- **Mohit:** Establish the Next.js application shell, shared styling baseline, navigation/layout, and a responsive application frame.
+- **Saransh:** Establish test tooling and CI checks; add smoke tests for the web app and API startup; document the local verification steps.
+- **Manan:** Establish the game-domain package boundary and a small set of pure, testable rule interfaces; avoid implementing unapproved mechanics.
+
+**Potential PRs:**
+1. Monorepo/workspace and shared tooling setup — Chirrayu, with Saransh validating CI.
+2. Web application shell and base layout — Mohit.
+3. API service bootstrap and health endpoint — Chirrayu.
+4. Database connection, initial schema baseline, and migration workflow — Chirrayu.
+5. Game-domain package skeleton and rule conventions — Manan.
+6. CI pipeline and smoke-test baseline — Saransh.
+
+These are separate only if each can be reviewed and verified independently. If the workspace setup and CI are inseparable in the chosen tooling, combine them rather than manufacturing a PR.
+
+### Phase 2 — World data and isometric map
+
+**Goal:** Players can enter a real seeded world and inspect it.
+
+- **Raghav:** Approve the initial world size, terrain palette, map readability, and acceptance criteria.
+- **Chirrayu:** Store world/tile data, seed the initial map, and expose read-only world/map endpoints.
+- **Mohit:** Build the PixiJS map surface, camera pan/zoom, tile rendering, loading/error states, and responsive map layout.
+- **Saransh:** Test map API responses, coordinate edge cases, loading states, and user interactions; add regression coverage.
+- **Manan:** Define logical grid coordinates, terrain identifiers, map validation, and deterministic map-generation/seed rules.
+
+**Potential PRs:**
+1. World and tile schema plus initial seed data — Chirrayu.
+2. Logical map and terrain domain rules — Manan.
+3. Read-only world/map API — Chirrayu.
+4. Isometric renderer and camera controls — Mohit.
+5. Terrain styling and tile selection/inspection — Mohit.
+6. Map/API integration and map regression tests — Saransh, pairing with the relevant owners.
+
+### Phase 3 — Accounts and first settlement
+
+**Goal:** A player can enter the world and see their own settlement.
+
+- **Raghav:** Approve onboarding behavior and the one-starting-settlement rule; verify the player journey against the MVP.
+- **Chirrayu:** Implement registration/login, session handling, player profile persistence, starting-settlement creation, and ownership-protected settlement endpoints.
+- **Mohit:** Build registration/login screens, onboarding flow, settlement dashboard, resource summary, and building overview components.
+- **Saransh:** Test authentication flows, duplicate account handling, session behavior, settlement creation, and cross-player access denial; contribute frontend loading, empty, and error states.
+- **Manan:** Define starting settlement defaults, valid placement constraints, and the initial building/resource state as domain configuration.
+
+**Potential PRs:**
+1. Account and session API — Chirrayu.
+2. Authentication and onboarding UI — Mohit.
+3. Starting settlement domain rules/defaults — Manan.
+4. Starting settlement creation and ownership API — Chirrayu.
+5. Settlement dashboard and inventory/building display — Mohit.
+6. Authentication and ownership integration tests — Saransh.
+
+### Phase 4 — Economy and construction
+
+**Goal:** The settlement loop becomes playable: production, spending, building, and upgrading.
+
+- **Raghav:** Approve costs, production rates, storage caps, prerequisites, and construction durations before they are implemented; prioritize balance changes.
+- **Chirrayu:** Implement transactional commands and persistence for inventory changes, construction requests, and upgrades; enforce ownership and affordability on the server.
+- **Mohit:** Build resource panels, building catalog/cards, construction forms, timers/status displays, and clear success/error feedback.
+- **Saransh:** Add unit and integration tests for affordability, caps, invalid commands, duplicate submissions, and unauthorized actions; test the full UI command flow.
+- **Manan:** Implement pure production, capacity, cost, prerequisite, upgrade, and elapsed-time calculations; provide deterministic test cases and versioned balance configuration.
+
+**Potential PRs:**
+1. Building/resource definitions and approved balance configuration — Manan.
+2. Production and storage-cap calculations — Manan.
+3. Inventory and production API integration — Chirrayu.
+4. Building catalog and upgrade rules — Manan.
+5. Transactional construction/upgrade commands — Chirrayu.
+6. Building and construction UI — Mohit.
+7. Economy and construction unit/integration test suite — Saransh.
+
+Keep the game-rule calculation PR separate from database/API wiring when the domain rules can be tested independently. Do not split one atomic transaction across artificial PRs.
+
+### Phase 5 — Persistent offline simulation
+
+**Goal:** The world progresses correctly while players are away, including across process restarts.
+
+- **Raghav:** Approve offline progression expectations and any cap/limit rules; decide what must be visible to players when they return.
+- **Chirrayu:** Implement worker process setup, due-work claiming, transactional persistence, database locking/coordination, and operational logging.
+- **Mohit:** Show production progress, construction completion state, return-after-absence summaries, and reconnect/refetch behavior.
+- **Saransh:** Test elapsed-time scenarios, worker restarts, repeated processing, concurrent requests, storage caps, and failure recovery.
+- **Manan:** Implement shared deterministic simulation calculations, fractional production handling, construction due-state rules, and idempotent simulation behavior.
+
+**Potential PRs:**
+1. Offline production calculation and deterministic time tests — Manan.
+2. Simulation worker bootstrap and due-work polling — Chirrayu.
+3. Transaction-safe production settlement — Chirrayu, using Manan's rules.
+4. Due construction completion processing — Manan and Chirrayu, preferably as one coherent vertical slice if the domain and persistence changes cannot be independently validated.
+5. Idempotency/concurrency/restart regression tests — Saransh.
+6. Offline progress and completion UI states — Mohit.
+
+A worker that merely starts but does not safely persist progress is not a complete feature. The acceptance test must prove that elapsed time is applied once, even after a restart or retry.
+
+### Phase 6 — World history, integration, and MVP release
+
+**Goal:** Make the first playable loop understandable, testable, and safe to invite players into.
+
+- **Raghav:** Run the release checklist, accept/reject MVP scope, coordinate final reviews, prioritize blockers, and approve the release.
+- **Chirrayu:** Complete event persistence/API support, security hardening, error handling, deployment configuration, and database backup/recovery notes.
+- **Mohit:** Complete activity feed, world/settlement navigation, responsive polish, accessibility basics, and consistent empty/loading/error states.
+- **Saransh:** Own end-to-end regression of the acceptance criteria, browser compatibility checks, test report, and release-blocker verification.
+- **Manan:** Validate simulation consistency across long elapsed intervals, edge cases, and balance configuration; fix domain-rule defects found during acceptance testing.
+
+**Potential PRs:**
+1. Persistent world-event model and event API — Chirrayu.
+2. Activity feed and event presentation — Mohit.
+3. Security/authorization regression coverage — Saransh.
+4. Full player-loop end-to-end tests — Saransh.
+5. Simulation edge-case and balance fixes — Manan.
+6. Deployment, operations, and recovery documentation/configuration — Chirrayu.
+7. Final usability/accessibility fixes — Mohit.
+8. Release checklist and MVP documentation update — Raghav.
+
+Do not create a separate PR for every test case or every CSS adjustment. Group related coverage and polish into cohesive changes that have a clear review purpose.
+
+### Cross-phase working agreements
+
+- One person is the **primary author** for each PR; collaborators can review or contribute, but ownership must be clear.
+- Backend and game-engine work must agree on domain contracts before either side depends on an unstable interface.
+- Frontend work should use agreed API contracts and mock data only where that unblocks a genuinely independent UI task.
+- Saransh should be involved early, not only at the end; tests should accompany the feature they validate.
+- Raghav creates or approves the issue before implementation begins and keeps the acceptance criteria stable during the work.
+- A PR is not a task tracker. One issue may produce multiple PRs when it contains independently reviewable deliverables; one PR may close multiple tightly related issues when the change is cohesive.
+- Prefer vertical slices that can be demonstrated and tested over large "finish the whole phase" PRs.
+
+## Pull request strategy
+
+The goal is to maximize **useful, reviewable PRs**, not the raw PR count. A healthy project can produce many PRs because the work naturally separates into API, domain, UI, and test deliverables. It should never produce PRs whose only purpose is to increase contribution counts.
+
+### When work deserves its own PR
+
+Create a separate PR when the change:
+- Delivers one independently understandable capability or foundation.
+- Has a clear issue, owner, and acceptance criteria.
+- Can be reviewed without requiring unrelated unfinished work.
+- Has meaningful verification: tests, a working UI flow, a migration check, a reproducible setup step, or a documented decision.
+- Is small enough to understand but large enough to matter.
+
+### When to combine work
+
+Combine changes when they:
+- Must land atomically to keep the application working.
+- Are two halves of one inseparable feature.
+- Are trivial edits that would create review overhead without adding clarity.
+- Depend on the same small implementation and cannot be meaningfully validated separately.
+
+### Suggested PR sizing and cadence
+
+- Aim for one coherent outcome per PR; as a rough guide, prefer a few hundred lines over a thousand-line feature dump, but do not split code mechanically by line count.
+- Prefer several focused PRs across a phase rather than one phase-sized PR.
+- Open draft PRs when early integration feedback is useful, not merely to reserve a number.
+- Keep PRs targeted at `main`; avoid long-lived branches that accumulate unrelated changes.
+- Merge only after review, checks, and relevant acceptance criteria pass.
+- Use squash-and-merge unless the maintainer has a reason to preserve individual commits.
+
+### Definition of a legitimate PR
+
+Before opening a PR, the contributor should be able to answer:
+1. What user-visible or engineering outcome does this deliver?
+2. Which issue or approved phase requirement does it satisfy?
+3. How can a reviewer verify it?
+4. What does it depend on, and is that dependency already merged or clearly documented?
+
+If those answers are unclear, the work probably needs a better issue or should be combined with a related change. Never create empty PRs, cosmetic-only contribution-count PRs, duplicate PRs, or PRs that merely move code between files without a real engineering reason.
 
 ## Roadmap
 
