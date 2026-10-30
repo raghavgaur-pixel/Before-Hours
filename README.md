@@ -496,20 +496,6 @@ The frontend is normally available at **http://localhost:3000**. The backend lis
 
 ---
 
-## Contributors
-
-Thanks to everyone who has helped build the current project snapshot. The credits below use GitHub usernames.
-
-| Contributor | Contributions | Relevant work |
-|---|---|---|
-| [@raghavgaur-pixel](https://github.com/raghavgaur-pixel) | Product direction, game specification, repository structure, development workflow, documentation, reviews, and milestone integration. | [PR #2](https://github.com/raghavgaur-pixel/Before-Hours/pull/2), [PR #8](https://github.com/raghavgaur-pixel/Before-Hours/pull/8), [PR #20](https://github.com/raghavgaur-pixel/Before-Hours/pull/20), [PR #26](https://github.com/raghavgaur-pixel/Before-Hours/pull/26) |
-| [@Mohit-stu](https://github.com/Mohit-stu) | Frontend shell, 3D hex world, terrain, characters, creatures, environment, combat encounter, player controls, and waterfall. | [PR #6](https://github.com/raghavgaur-pixel/Before-Hours/pull/6), [PR #17](https://github.com/raghavgaur-pixel/Before-Hours/pull/17), [PR #18](https://github.com/raghavgaur-pixel/Before-Hours/pull/18), [PR #22](https://github.com/raghavgaur-pixel/Before-Hours/pull/22), [PR #25](https://github.com/raghavgaur-pixel/Before-Hours/pull/25) |
-| [@chirrayu](https://github.com/chirrayu) | Fastify backend, Prisma models, authentication API, environment configuration, Supabase integration, error handling, tests, and frontend authentication integration. | [PR #13](https://github.com/raghavgaur-pixel/Before-Hours/pull/13), [PR #16](https://github.com/raghavgaur-pixel/Before-Hours/pull/16), [PR #21](https://github.com/raghavgaur-pixel/Before-Hours/pull/21) |
-| [@Dark000099](https://github.com/Dark000099) | Character models and textures, ability assets, control reference, and archived alternate-map asset. | [PR #14](https://github.com/raghavgaur-pixel/Before-Hours/pull/14), [PR #19](https://github.com/raghavgaur-pixel/Before-Hours/pull/19), [PR #24](https://github.com/raghavgaur-pixel/Before-Hours/pull/24) |
-| [@Skeleton-code0](https://github.com/Skeleton-code0) | Early standalone loading/login visual experiment and animated panorama work. | [Loading screen V1 commit](https://github.com/raghavgaur-pixel/Before-Hours/commit/19948eb6f7719c2f4f4d93df5d444f645dbc8566) |
-
----
-
 ## Development workflow
 
 - **test** is the default integration branch. Contributor pull requests should target **test**.
