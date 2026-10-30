@@ -845,23 +845,34 @@ Faction systems, diplomacy, trade, territory, population, military systems, and 
 
 The project has a maintainer-led workflow:
 - The maintainer owns project direction, scope, architecture decisions, review, and merging.
-- Contributors take agreed issues and work on focused branches.
+- Each contributor works from one personal branch named after them; see the branch ownership table below.
 - Every contribution is submitted as a pull request targeting `main`.
 - The maintainer reviews and decides when a PR is ready to merge.
 - Contributors should coordinate changes to shared contracts, database schema, and game rules before implementation.
 
-### Branch naming
+### Branch naming and ownership
 
-Use focused branch names:
+The team uses **one long-lived working branch per person**, not a new feature branch for every task. Each contributor works on their own branch, named exactly after them, using the capitalization already established in the repository.
 
-```text
-feat/settlement-inventory
-feat/isometric-map
-fix/construction-validation
-docs/game-design
-test/offline-production
-chore/monorepo-setup
-```
+| Person | Personal branch |
+|---|---|
+| Raghav | `Raghav` (maintainer branch, if/when created) |
+| Chirrayu | `chirrayu` |
+| Mohit | `mohit` |
+| Saransh | `Saransh` |
+| Manan | `Manan` |
+
+Do not create branches named after individual features, fixes, phases, or PRs. Do not create a second personal branch for the same contributor.
+
+**Working with one branch per person:**
+- Keep your work on your own personal branch.
+- Open a PR from your personal branch into `main` when you have a coherent, reviewable change.
+- Keep only one open PR per personal branch at a time. Merge it before opening the next PR from that branch.
+- After a PR is merged, sync your personal branch with the latest `main` before starting the next piece of work.
+- Keep unrelated unfinished work out of a PR. Coordinate with the maintainer if work for a later PR is already accumulating on your branch.
+- The maintainer reviews and merges PRs; contributors do not push directly to `main`.
+
+This workflow supports multiple meaningful PRs over time while keeping the branch list limited to one working branch per person.
 
 ### Pull request expectations
 
