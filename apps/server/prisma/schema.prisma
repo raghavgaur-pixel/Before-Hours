@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  username     String      @unique
+  passwordHash String      @map("password_hash")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  character    Character?
+  settlement   Settlement?
+
+  @@map("users")
+}
+
+model Character {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  archetype String   @default("warrior") // warrior, gunslinger, arcanist, battlemage
+  level     Int      @default(1)
+  health    Int      @default(100)
+  maxHealth Int      @default(100) @map("max_health")
+  strength  Int      @default(10)
+  agility   Int      @default(10)
+  endurance Int      @default(10)
+  magic     Int      @default(10)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("characters")
+}
+
+model Settlement {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  wood      Int      @default(100)
+  stone     Int      @default(100)
+  food      Int      @default(100)
+  iron      Int      @default(50)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settlements")
+}
