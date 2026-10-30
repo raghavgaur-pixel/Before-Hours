@@ -205,3 +205,8 @@ The immediate goal is to deliver a persistent dark-fantasy world where players d
 *AFTERHOURS — The world doesn't wait for you.*
 
 *Built under the Before Hours project.*
+
+
+
+npm.cmd --prefix backend/server run dev
+npm.cmd --prefix frontend run dev
