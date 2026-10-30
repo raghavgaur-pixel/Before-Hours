@@ -1,0 +1,14 @@
+{
+  "name": "afterhours-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev:server": "npm --prefix apps/server run dev",
+    "build:web": "npm --prefix apps/web run build",
+    "build:server": "npm --prefix apps/server run build",
+    "test:server": "npm --prefix apps/server run test"
+  }
+}
