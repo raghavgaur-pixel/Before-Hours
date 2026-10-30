@@ -23,6 +23,20 @@ The intended resource foundation is **Wood, Stone, Food, and Iron**. The intende
 
 The current build focuses on bringing the world and its combat to life. Settlement management, persistent world simulation, and multiplayer systems are future implementation work—not features represented by the current 3D demo.
 
+## Project status at a glance
+
+| Area | Present in the repository | Current boundary |
+|---|---|---|
+| Frontend and navigation | Next.js application shell, landing page, login and registration screens | Settlement and Chronicle remain placeholders |
+| Player accounts | Registration, login, logout and profile API integration | Account data is separate from the live encounter simulation |
+| 3D world | Procedural 271-tile hex map, terrain, settlement scenery, minimap and environmental details | Map is generated locally and is not a persistent shared world |
+| Combat encounter | Third-person controls, two switchable heroes, six weapons, abilities, stamina, dodging, blocking, parrying and enemy AI | Combat runs locally in the browser; it is not server-authoritative or multiplayer |
+| Living environment | Hostile creatures, villagers, guards, wildlife and contextual interactions | NPC behaviour is part of the local prototype |
+| Backend foundation | Fastify API, Prisma schema, PostgreSQL support and authentication tests | No world, settlement-economy or battle-state APIs yet |
+| Persistent strategy gameplay | Product direction and initial account/resource models are established | Territory, construction, production, offline simulation, PvP and shared-world persistence remain future work |
+
+This distinction is important: the current repository demonstrates a substantial 3D game prototype and an account/backend foundation. It does not yet represent the complete persistent multiplayer game described by the long-term vision.
+
 ## The current build
 
 ### 3D world and exploration
@@ -118,6 +132,18 @@ Click **Take Control** when entering the world to enable the third-person contro
 | Switch play / overview camera | `O` |
 | Pause / settings | `Esc` |
 
+### Suggested walkthrough for the current build
+
+1. Start the frontend and backend using the commands below. Open the app at `http://localhost:3000`.
+2. Visit `/register` to try account creation and choose one of the four starting archetypes, or use `/login` to sign in.
+3. Open `/world` and choose **Take Control** to enter third-person play mode.
+4. Move with `W`, `A`, `S`, and `D`; move the mouse to look around. Switch between the Warden and Sentinel with `X`, and cycle the selected hero's weapons with `1`–`3` or `[` / `]`.
+5. Try the combat loop: attack with left-click, use a heavy or charged attack with `Shift` + left-click, block with right-click, parry with `Q`, dodge with `Space`, and activate the selected weapon's skill with `E`.
+6. Explore the environment with `F` near the bonfire, well, cattle pen or graveyard. Open the inventory, character, equipment, map and gestures panels to inspect the supporting interface.
+7. Press `O` to switch between the close third-person camera and map overview. Press `T` to toggle local auto-battle.
+
+The encounter is a frontend simulation. Combat, NPCs, items and map state are not shared with other players or saved as persistent gameplay progress.
+
 ## Application pages
 
 | Route | Purpose | Status |
@@ -209,6 +235,7 @@ Before-Hours/
 ├── ability/                      # GLB ability/effect assets
 ├── skin/                         # Character models, textures and related assets
 ├── controls.txt                  # Keyboard and mouse control reference
+├── NitroGen                      # Git submodule pointer; see the asset note below
 ├── package.json                  # Root development scripts
 ├── pnpm-workspace.yaml
 └── README.md
@@ -216,9 +243,11 @@ Before-Hours/
 
 ### 3D asset notes
 
-The repository includes four GLB assets under `ability/`, character models and textures under `skin/skin1/` and `skin/skin2/`, and a backup map asset under `skin/backup-map/`.
+The repository includes four GLB assets under `ability/`, character models and textures under `skin/skin1/` and `skin/skin2/`, and an archived textured-map ZIP plus a texture reference under `skin/backup-map/`. The backup map is not the source of the current procedural hex world.
 
 The current Warden, Sentinel, monsters, villagers, and much of the environment are built from procedural Three.js geometry and animation. The committed GLB files are project assets, but a complete in-game model/equipment loading pipeline is not yet integrated. The `blender/` directory is currently a placeholder and does not contain tracked `.blend` source projects.
+
+A root-level `NitroGen` entry is present as a Git submodule pointer, but the repository currently has no `.gitmodules` file or URL for it. A fresh clone therefore cannot initialise that dependency from this repository alone; its source location needs to be documented before contributors can retrieve it.
 
 ---
 
