@@ -15,6 +15,12 @@ const RESOURCES = [
   { label: "Army", value: "3/5", rate: "", color: "text-foreground" },
 ];
 
+const BATTLERS = [
+  { name: "Ashen Warden", hp: 82, bar: "bg-teal-400" },
+  { name: "Iron Sentinel", hp: 91, bar: "bg-orange-400" },
+  { name: "Gravemaw", hp: 58, bar: "bg-red-500" },
+];
+
 const TOOLBAR = ["Build", "Town", "Research", "Council", "Army"];
 const RAIL = ["Home", "Chronicle", "Council", "Scout", "Settings"];
 
@@ -23,6 +29,7 @@ const btn =
 
 export function WorldView() {
   const [selected, setSelected] = useState<Tile | null>(null);
+  const [focusKey, setFocusKey] = useState(0);
 
   return (
     <div className="fixed inset-x-0 bottom-0 top-[61px] z-0 bg-background">
@@ -30,6 +37,7 @@ export function WorldView() {
         selected={selected}
         onSelect={setSelected}
         onClear={() => setSelected(null)}
+        focusKey={focusKey}
       />
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(4,6,8,0.75)_100%)]" />
@@ -66,6 +74,31 @@ export function WorldView() {
           <Minimap selected={selected} />
           <div className="rounded border border-gold/40 bg-black/60 px-3 py-1 text-[10px] tracking-[0.3em] text-gold">
             N · E · S · W
+          </div>
+          <div className="pointer-events-auto w-[190px] rounded border border-red-900/70 bg-black/70 p-3 text-xs backdrop-blur">
+            <p className="flex items-center gap-2 font-medium text-red-300">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+              Gravemaw sighted
+            </p>
+            <p className="mt-1 text-muted">Southern fields · battle in progress</p>
+            {BATTLERS.map((b) => (
+              <div key={b.name} className="mt-2">
+                <div className="flex justify-between text-[10px] text-muted">
+                  <span>{b.name}</span>
+                  <span>{b.hp}%</span>
+                </div>
+                <div className="h-1.5 rounded bg-white/10">
+                  <div className={`h-full rounded ${b.bar}`} style={{ width: `${b.hp}%` }} />
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setFocusKey((k) => k + 1)}
+              className="mt-3 w-full rounded border border-gold/50 py-1.5 text-gold transition-colors hover:bg-gold/10"
+            >
+              Focus battle
+            </button>
           </div>
         </div>
 

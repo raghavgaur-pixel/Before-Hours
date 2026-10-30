@@ -1,19 +1,28 @@
 "use client";
 
 import { OrbitControls, Sparkles } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { Color, InstancedMesh, Object3D } from "three";
+import { CattlePen, Crow, Deer, Wolf } from "./Animals";
 import { AshenWarden, IronSentinel } from "./Characters";
+import { Bonfire, DeadTree, Graveyard, Lantern, Well } from "./DarkVillage";
+import { Monster } from "./Monster";
 import { Bridge, ResourceMarker } from "./landmarks";
 import { Mountains } from "./Mountains";
 import { Crystal, House, Tower, Wheat } from "./props";
 import {
+  BATTLE,
+  GRAVEYARD,
   HEX_SIZE,
   MAP_RADIUS,
+  PEN,
   TILES,
   Terrain,
   Tile,
+  groundAt,
+  inClearing,
   mulberry32,
 } from "./terrain";
 
@@ -45,6 +54,7 @@ function buildTrees(): TreeSpec[] {
     else if (t.terrain === "mountain" && t.ring < MAP_RADIUS - 2) n = Math.floor(rand() * 4);
     for (let i = 0; i < n; i++) {
       const [dx, dz] = scatter(rand, 0.75);
+      if (inClearing(t.x + dx, t.z + dz)) continue;
       out.push({
         x: t.x + dx,
         z: t.z + dz,
@@ -202,20 +212,57 @@ function HexTile({
   );
 }
 
+const LANTERNS: [number, number][] = [
+  [0.95, 0.95], [-0.95, 1.05], [0.3, 2.1], [-1.6, 2.5], [2.1, 0.3], [-2.1, -0.3], [1.5, 2.8], [-0.4, -1.4],
+];
+const DEAD_TREES: [number, number][] = [[-2.0, -1.5], [2.5, 2.1], [-1.9, 4.6], [3.0, -1.2], [-4.4, 2.2]];
+const WOLVES = [
+  { center: [-2.6, -3.0] as [number, number], radius: 1.1, speed: 0.55, phase: 0 },
+  { center: [-2.6, -3.0] as [number, number], radius: 1.1, speed: 0.55, phase: 2.1 },
+  { center: [-2.6, -3.0] as [number, number], radius: 1.3, speed: 0.5, phase: 4.2 },
+  { center: [4.7, -3.0] as [number, number], radius: 0.9, speed: 0.6, phase: 1, clockwise: -1 as const },
+  { center: [4.7, -3.0] as [number, number], radius: 0.9, speed: 0.6, phase: 3.6, clockwise: -1 as const },
+];
+const DEER: [number, number, number][] = [[-1.0, -4.4, 0.8], [-0.4, -4.9, 2.4], [-1.6, -4.9, 1.4]];
+const CROWS = Array.from({ length: 6 }, (_, i) => ({
+  center: [(i % 3) * 1.5 - 1.5, (i % 2) * 2 - 0.5] as [number, number],
+  radius: 2.5 + (i % 3) * 1.1,
+  height: 2.4 + (i % 4) * 0.35,
+  speed: 0.3 + (i % 3) * 0.08,
+  phase: i * 1.1,
+}));
+
 const pick = (pred: (t: Tile) => boolean) => TILES.filter(pred).sort((a, b) => a.ring - b.ring)[0];
+
+/** Moves the camera to the battle whenever `focusKey` changes. */
+function CameraRig({ focusKey }: { focusKey: number }) {
+  const camera = useThree((s) => s.camera);
+  const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
+  useEffect(() => {
+    if (focusKey === 0 || !controls) return;
+    controls.target.set(BATTLE.x + 0.3, 0.5, BATTLE.z);
+    camera.position.set(BATTLE.x + 2.2, 3.4, BATTLE.z + 5.2);
+    controls.update();
+  }, [focusKey, camera, controls]);
+  return null;
+}
 
 export function WorldScene({
   selected,
   onSelect,
   onClear,
+  focusKey = 0,
 }: {
   selected: Tile | null;
   onSelect: (t: Tile) => void;
   onClear: () => void;
+  focusKey?: number;
 }) {
-  const standY = TILES.find((t) => t.terrain === "village")?.height ?? 0.3;
-  const wardenPos: V3 = [1.55, standY, 0.95];
-  const sentinelPos: V3 = [-1.45, standY, 0.9];
+  const face = (a: [number, number], b: [number, number]) => Math.atan2(b[0] - a[0], b[1] - a[1]);
+  const wardenXZ: [number, number] = [BATTLE.x - 0.95, BATTLE.z - 0.25];
+  const sentinelXZ: [number, number] = [BATTLE.x - 0.5, BATTLE.z + 0.8];
+  const monsterXZ: [number, number] = [BATTLE.x + 1.35, BATTLE.z];
+  const at = (xz: [number, number]): V3 => [xz[0], groundAt(xz[0], xz[1]), xz[1]];
 
   const { bridges, markers } = useMemo(() => {
     const water = (zTarget: number) =>
@@ -273,12 +320,38 @@ export function WorldScene({
           ),
       )}
 
-      <AshenWarden position={wardenPos} />
-      <IronSentinel position={sentinelPos} />
+      <AshenWarden position={at(wardenXZ)} facing={face(wardenXZ, monsterXZ)} fight />
+      <IronSentinel position={at(sentinelXZ)} facing={face(sentinelXZ, monsterXZ)} fight />
+      <Monster position={at(monsterXZ)} facing={face(monsterXZ, wardenXZ)} />
+      <Bonfire x={BATTLE.x - 1.9} z={BATTLE.z + 1.0} />
 
-      <Sparkles count={140} scale={[22, 5, 22]} position={[0, 2, 0]} size={3} speed={0.3} color="#2de2c0" opacity={0.6} />
+      <CattlePen center={[PEN.x, PEN.z]} />
+      <Graveyard center={[GRAVEYARD.x, GRAVEYARD.z]} />
+      <Well x={-1.0} z={-1.15} />
 
+      {LANTERNS.map(([x, z], i) => (
+        <Lantern key={i} x={x} z={z} phase={i * 1.7} color={i % 4 === 3 ? "#59f0d0" : "#ffa64d"} />
+      ))}
+      {DEAD_TREES.map(([x, z], i) => (
+        <DeadTree key={i} position={[x, groundAt(x, z), z]} scale={1.1 + (i % 3) * 0.2} seed={i + 2} />
+      ))}
+
+      {WOLVES.map((wf, i) => (
+        <Wolf key={i} {...wf} />
+      ))}
+      {DEER.map(([x, z, rot], i) => (
+        <Deer key={i} position={[x, groundAt(x, z), z]} rotation={rot} phase={i * 2.1} />
+      ))}
+      {CROWS.map((c, i) => (
+        <Crow key={i} {...c} />
+      ))}
+
+      <Sparkles count={150} scale={[22, 6, 22]} position={[0, 2.5, 0]} size={2} speed={0.12} color="#9aa3ad" opacity={0.35} />
+      <Sparkles count={110} scale={[22, 5, 22]} position={[0, 2, 0]} size={3} speed={0.3} color="#2de2c0" opacity={0.6} />
+
+      <CameraRig focusKey={focusKey} />
       <OrbitControls
+        makeDefault
         target={[0, 0, 1]}
         minDistance={6}
         maxDistance={30}
