@@ -536,9 +536,7 @@ before-hours/
 │   ├── database/             # Prisma schema and migrations
 │   └── config/               # Shared tooling configuration
 │
-├── docs/                     # Supporting design and engineering documents
 ├── .github/                  # Contribution and PR templates
-├── CONTRIBUTING.md
 ├── README.md
 └── package.json
 ```
@@ -673,7 +671,7 @@ Every PR should:
 
 Do not push directly to `main`. The intended merge strategy is squash-and-merge after maintainer approval and resolution of review conversations.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor workflow.
+The contribution workflow above is the project-wide baseline; the pull request template in `.github/PULL_REQUEST_TEMPLATE.md` helps contributors submit consistent reviews.
 
 ## Glossary
 
