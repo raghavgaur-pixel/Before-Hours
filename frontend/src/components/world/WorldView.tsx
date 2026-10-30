@@ -30,6 +30,7 @@ import {
   stageFor,
   selectHero,
   selectSkin,
+  setHeroName,
   selectWeapon,
   setBlock,
   startCharge,
@@ -43,6 +44,8 @@ import {
   type HeroId,
   type WeaponId,
 } from "./battleEngine";
+import { useRouter } from "next/navigation";
+import { useSession } from "@/lib/auth";
 import { Minimap } from "./Minimap";
 import { view } from "./playerControl";
 import { SKINS } from "./skins";
@@ -307,7 +310,7 @@ function Modal({ title, onClose, children, wide = false }: { title: string; onCl
   );
 }
 
-export function WorldView() {
+function WorldGame({ name }: { name: string }) {
   const box = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Tile | null>(null);
   const [mode, setMode] = useState<"play" | "overview">("play");
@@ -320,6 +323,7 @@ export function WorldView() {
     panelRef.current = panel;
   }, [panel]);
   useBattle();
+  useEffect(() => setHeroName(name), [name]);
 
   const paused = panel === "pause";
 
@@ -973,4 +977,15 @@ export function WorldView() {
       )}
     </div>
   );
+}
+
+/** Only signed-in players get into the world; everyone else goes to the home page to log in. */
+export function WorldView() {
+  const session = useSession();
+  const router = useRouter();
+  useEffect(() => {
+    if (session === null) router.replace("/");
+  }, [session, router]);
+  if (!session) return <div className="fixed inset-x-0 bottom-0 top-[61px] bg-background" />;
+  return <WorldGame name={session.username} />;
 }
