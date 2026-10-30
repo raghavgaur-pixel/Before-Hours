@@ -1,35 +1,37 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["multiSchema"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  schemas   = ["public", "auth"]
 }
+
+// ─── Users ────────────────────────────────────────────────────────────────────
 
 model User {
-  id           String      @id @default(uuid())
-  email        String      @unique
-  username     String      @unique
-  passwordHash String      @map("password_hash")
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
+  id           String        @id @default(uuid())
+  email        String        @unique
+  username     String        @unique
+  passwordHash String        @map("password_hash")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
   character    Character?
   settlement   Settlement?
+  worldPlayers WorldPlayer[]
 
   @@map("users")
-  @@schema("public")
 }
+
+// ─── Character ────────────────────────────────────────────────────────────────
 
 model Character {
   id        String   @id @default(uuid())
   userId    String   @unique @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
-  archetype String   @default("warrior") // warrior, gunslinger, arcanist, battlemage
+  archetype String   @default("warrior")
   level     Int      @default(1)
   health    Int      @default(100)
   maxHealth Int      @default(100) @map("max_health")
@@ -41,21 +43,104 @@ model Character {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("characters")
-  @@schema("public")
 }
 
-model Settlement {
+// ─── Worlds ───────────────────────────────────────────────────────────────────
+
+model World {
+  id          String        @id @default(uuid())
+  name        String        @unique
+  description String        @default("")
+  maxPlayers  Int           @default(100) @map("max_players")
+  status      String        @default("active") // active | full | maintenance
+  mapWidth    Int           @default(64) @map("map_width")
+  mapHeight   Int           @default(64) @map("map_height")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  players     WorldPlayer[]
+  tiles       Tile[]
+
+  @@map("worlds")
+}
+
+model WorldPlayer {
   id        String   @id @default(uuid())
-  userId    String   @unique @map("user_id")
+  worldId   String   @map("world_id")
+  userId    String   @map("user_id")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+  world     World    @relation(fields: [worldId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([worldId, userId])
+  @@map("world_players")
+}
+
+model Tile {
+  id         String   @id @default(uuid())
+  worldId    String   @map("world_id")
+  x          Int
+  y          Int
+  type       String   @default("plains") // plains | forest | mountain | water | ruins
+  hasFeature Boolean  @default(false) @map("has_feature")
+  feature    String?  // e.g. "ancient_ruins", "sacred_spring"
+  world      World    @relation(fields: [worldId], references: [id], onDelete: Cascade)
+
+  @@unique([worldId, x, y])
+  @@map("tiles")
+}
+
+// ─── Settlements ──────────────────────────────────────────────────────────────
+
+model Settlement {
+  id        String     @id @default(uuid())
+  userId    String     @unique @map("user_id")
+  worldId   String?    @map("world_id")
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
-  wood      Int      @default(100)
-  stone     Int      @default(100)
-  food      Int      @default(100)
-  iron      Int      @default(50)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  tileX     Int?       @map("tile_x")
+  tileY     Int?       @map("tile_y")
+  wood      Int        @default(100)
+  stone     Int        @default(100)
+  food      Int        @default(100)
+  iron      Int        @default(50)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  buildings Building[]
 
   @@map("settlements")
-  @@schema("public")
+}
+
+// ─── Buildings ────────────────────────────────────────────────────────────────
+
+model BuildingType {
+  id              String     @id @default(uuid())
+  key             String     @unique  // e.g. "sawmill", "quarry"
+  name            String
+  description     String     @default("")
+  category        String     @default("production") // production | military | civic
+  maxLevel        Int        @default(5) @map("max_level")
+  baseCostWood    Int        @default(0) @map("base_cost_wood")
+  baseCostStone   Int        @default(0) @map("base_cost_stone")
+  baseCostFood    Int        @default(0) @map("base_cost_food")
+  baseCostIron    Int        @default(0) @map("base_cost_iron")
+  buildTimeSeconds Int       @default(60) @map("build_time_seconds")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  buildings       Building[]
+
+  @@map("building_types")
+}
+
+model Building {
+  id             String       @id @default(uuid())
+  settlementId   String       @map("settlement_id")
+  buildingTypeId String       @map("building_type_id")
+  level          Int          @default(1)
+  status         String       @default("active") // active | constructing | upgrading
+  completesAt    DateTime?    @map("completes_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  settlement     Settlement   @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  buildingType   BuildingType @relation(fields: [buildingTypeId], references: [id])
+
+  @@map("buildings")
 }
