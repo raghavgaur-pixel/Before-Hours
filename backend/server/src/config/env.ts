@@ -23,4 +23,18 @@ if (!parsed.success) {
   throw new Error("Invalid environment variables");
 }
 
-export const env = parsed.data;
+function configuredValue(value?: string) {
+  if (!value || value.includes("[YOUR-") || value.startsWith("your-")) {
+    return undefined;
+  }
+  return value;
+}
+
+export const env = {
+  ...parsed.data,
+  DATABASE_URL: configuredValue(parsed.data.DATABASE_URL),
+  DIRECT_URL: configuredValue(parsed.data.DIRECT_URL),
+  SUPABASE_URL: configuredValue(parsed.data.SUPABASE_URL),
+  SUPABASE_ANON_KEY: configuredValue(parsed.data.SUPABASE_ANON_KEY),
+  SUPABASE_SERVICE_ROLE_KEY: configuredValue(parsed.data.SUPABASE_SERVICE_ROLE_KEY),
+};

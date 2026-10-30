@@ -54,6 +54,9 @@ export const TERRAIN_HEIGHT: Record<Terrain, number> = {
 };
 
 export const BATTLE = { x: 0.2, z: 3.1 };
+export const WARDEN_XZ: [number, number] = [BATTLE.x - 0.95, BATTLE.z - 0.25];
+export const SENTINEL_XZ: [number, number] = [BATTLE.x - 0.5, BATTLE.z + 0.8];
+export const MONSTER_XZ: [number, number] = [BATTLE.x + 1.35, BATTLE.z];
 export const PEN = { x: -2.6, z: 3.0 };
 export const GRAVEYARD = { x: -3.9, z: -0.9 };
 export const CLEARINGS = [
@@ -83,7 +86,7 @@ export function generateTiles(radius = MAP_RADIUS): Tile[] {
       if (ring <= 1) terrain = "village";
       else if (q === -1 && r === 3) terrain = "farm";
       else if (isRiver && ring < radius) terrain = "water";
-      else if (ring >= radius - 2 || (ring >= radius - 3 && n > 0.4) || n > 0.7) terrain = "mountain";
+      else if (ring >= radius - 1 || (ring >= radius - 2 && n > 0.34) || (ring >= radius - 3 && n > 0.52) || n > 0.76) terrain = "mountain";
       else if (n > 0.36) terrain = "forest";
 
       const base = TERRAIN_HEIGHT[terrain];
@@ -123,8 +126,7 @@ export function generateTiles(radius = MAP_RADIUS): Tile[] {
 
 export const TILES = generateTiles();
 
-/** Height of the terrain under a world position (nearest tile top). */
-export function groundAt(x: number, z: number) {
+export function nearestTile(x: number, z: number) {
   let best = TILES[0];
   let bd = Infinity;
   for (const t of TILES) {
@@ -134,9 +136,37 @@ export function groundAt(x: number, z: number) {
       best = t;
     }
   }
-  return best.height;
+  return best;
 }
 
+/** Height of the terrain under a world position (nearest tile top). */
+export const groundAt = (x: number, z: number) => nearestTile(x, z).height;
+
+/** River tiles carrying the two bridges. */
+export const BRIDGE_TILES = [-3, 3]
+  .map((zTarget) =>
+    TILES.filter((t) => t.terrain === "water" && t.ring <= 6).sort(
+      (a, b) => Math.abs(a.z - zTarget) - Math.abs(b.z - zTarget),
+    )[0],
+  )
+  .filter(Boolean);
+
+/** Can a character stand here? Mountains and open water are blocked; bridges are fine. */
+export function isWalkable(x: number, z: number) {
+  const t = nearestTile(x, z);
+  if (t.terrain === "mountain") return false;
+  if (t.terrain === "water") return BRIDGE_TILES.some((b) => Math.hypot(b.x - x, b.z - z) < 1.3 && Math.abs(z - b.z) < 0.5);
+  return Math.hypot(x, z) < 11;
+}
+
+export type Interactable = { id: string; x: number; z: number; r: number; label: string };
+
+export const INTERACTABLES: Interactable[] = [
+  { id: "bonfire", x: BATTLE.x - 1.9, z: BATTLE.z + 1.0, r: 1.4, label: "Rest at the bonfire" },
+  { id: "well", x: -1.0, z: -1.15, r: 1.2, label: "Drink from the well" },
+  { id: "pen", x: PEN.x, z: PEN.z, r: 1.7, label: "Calm the cattle" },
+  { id: "grave", x: GRAVEYARD.x, z: GRAVEYARD.z, r: 1.6, label: "Pay your respects" },
+];
 export const TERRAIN_LABEL: Record<Terrain, string> = {
   village: "Settlement grounds",
   grass: "Meadow",
