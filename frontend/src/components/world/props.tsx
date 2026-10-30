@@ -47,7 +47,6 @@ export function Crystal({ position }: { position: V3 }) {
         <octahedronGeometry args={[0.16]} />
         <meshStandardMaterial color="#2de2c0" emissive="#17e0b5" emissiveIntensity={2.2} toneMapped={false} />
       </mesh>
-      <pointLight position={[0, 0.3, 0]} color="#2de2c0" intensity={2.5} distance={3.5} />
     </group>
   );
 }

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Before Hours</title>
+  <meta name="description" content="Register or log in to Before Hours.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="booting">
+
+  <!-- Start-up splash (original; shown while the 3D scene loads) -->
+  <div id="boot" class="boot" aria-hidden="true">
+    <div class="boot-logo">BEFORE<br>HOURS</div>
+    <div class="boot-bar"><i id="boot-fill"></i></div>
+  </div>
+
+  <!-- Background: slow cinematic camera through the 3D plaza -->
+  <div class="stage" aria-hidden="true">
+    <div class="sky-fallback"><div class="stars"></div><div class="stars stars-2"></div><div class="horizon"></div></div>
+    <iframe id="scene" title="Plaza Night Time, a 3D model by patrix"
+            allow="autoplay; fullscreen; xr-spatial-tracking" tabindex="-1"></iframe>
+    <div class="vignette"></div>
+  </div>
+
+  <main class="shell">
+    <header class="brand">
+      <h1 class="logo"><span>Before</span><span>Hours</span></h1>
+      <p class="edition">Hacktoberfest 2026 Edition</p>
+      <p class="splash" id="splash" aria-hidden="true">Rise before the sun!</p>
+    </header>
+
+    <!-- LOGIN -->
+    <section id="view-login" class="card" aria-labelledby="login-title" hidden>
+      <h2 id="login-title" tabindex="-1">Log in</h2>
+      <form id="login-form" novalidate>
+        <p class="form-err" id="login-form-err" role="alert"></p>
+
+        <div class="field">
+          <label for="login-identifier">Username or email</label>
+          <input id="login-identifier" name="identifier" type="text" autocomplete="username" required aria-describedby="login-identifier-err">
+          <p class="err" id="login-identifier-err" role="alert"></p>
+        </div>
+
+        <div class="field">
+          <label for="login-password">Password</label>
+          <div class="pw">
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required aria-describedby="login-password-err">
+            <button type="button" class="toggle" data-toggle="login-password" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
+          <p class="err" id="login-password-err" role="alert"></p>
+        </div>
+
+        <label class="check"><input type="checkbox" name="remember"> <span>Keep me signed in on this device</span></label>
+
+        <button type="submit" class="btn primary">Enter the world</button>
+      </form>
+      <p class="switch">New here? <a href="#/register">Create an account</a></p>
+    </section>
+
+    <!-- REGISTER -->
+    <section id="view-register" class="card" aria-labelledby="register-title" hidden>
+      <h2 id="register-title" tabindex="-1">Create account</h2>
+      <form id="register-form" novalidate>
+        <p class="form-err" id="reg-form-err" role="alert"></p>
+
+        <div class="field">
+          <label for="reg-username">Username</label>
+          <input id="reg-username" name="username" type="text" autocomplete="username" maxlength="20" required aria-describedby="reg-username-hint reg-username-err">
+          <p class="hint" id="reg-username-hint">3-20 letters, numbers or underscores.</p>
+          <p class="err" id="reg-username-err" role="alert"></p>
+        </div>
+
+        <div class="field">
+          <label for="reg-email">Email</label>
+          <input id="reg-email" name="email" type="email" autocomplete="email" required aria-describedby="reg-email-err">
+          <p class="err" id="reg-email-err" role="alert"></p>
+        </div>
+
+        <div class="field">
+          <label for="reg-password">Password</label>
+          <div class="pw">
+            <input id="reg-password" name="password" type="password" autocomplete="new-password" required aria-describedby="reg-password-hint reg-password-err">
+            <button type="button" class="toggle" data-toggle="reg-password" aria-label="Show password" aria-pressed="false">Show</button>
+          </div>
+          <div class="meter" id="reg-strength" data-level="0" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <p class="hint" id="reg-password-hint">At least 8 characters with letters and a number.</p>
+          <p class="err" id="reg-password-err" role="alert"></p>
+        </div>
+
+        <div class="field">
+          <label for="reg-confirm">Confirm password</label>
+          <input id="reg-confirm" name="confirm" type="password" autocomplete="new-password" required aria-describedby="reg-confirm-err">
+          <p class="err" id="reg-confirm-err" role="alert"></p>
+        </div>
+
+        <button type="submit" class="btn primary">Create account</button>
+      </form>
+      <p class="switch">Already have an account? <a href="#/login">Log in</a></p>
+    </section>
+
+    <!-- HOME (after login) -->
+    <section id="view-home" class="card wide" aria-labelledby="home-title" hidden>
+      <h2 id="home-title" tabindex="-1">Welcome, <span id="home-name"></span></h2>
+      <dl class="profile">
+        <div><dt>Email</dt><dd id="home-email"></dd></div>
+        <div><dt>Joined</dt><dd id="home-joined"></dd></div>
+      </dl>
+
+      <!-- GAME MOUNT POINT: render the game inside this element. -->
+      <div id="game-root" class="game-root">
+        <p>The world has not loaded yet.</p>
+        <button type="button" class="btn primary" id="start-btn">Begin the journey</button>
+      </div>
+
+      <button type="button" class="btn" id="logout-btn">Log out</button>
+    </section>
+  </main>
+
+  <footer class="credit">
+    <span>Before Hours · Hacktoberfest 2026</span>
+    <span>
+      <a href="https://sketchfab.com/3d-models/plaza-night-time-282f497334f64a589edee4e63ad7e428" target="_blank" rel="noopener">Plaza Night Time</a>
+      by patrix · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> · via Sketchfab
+    </span>
+  </footer>
+
+  <!-- Camera tuner: open index.html?tune to show -->
+  <aside id="tune" class="tune" hidden>
+    <strong>Camera tuner</strong>
+    <label>Up axis
+      <select id="tune-up"><option>z</option><option>y</option><option>x</option></select>
+    </label>
+    <label>Distance <input id="tune-radius" type="range" min="0.2" max="1.5" step="0.05" value="0.7"></label>
+    <label>Height <input id="tune-height" type="range" min="0" max="2" step="0.05" value="1"></label>
+    <button type="button" id="tune-copy">Copy camera JSON</button>
+    <pre id="tune-out">waiting for scene…</pre>
+  </aside>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
+  <script src="scene.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

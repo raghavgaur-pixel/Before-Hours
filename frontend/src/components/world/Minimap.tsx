@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { engine } from "./battleEngine";
 import { HEX_SIZE, TILES, Terrain, Tile } from "./terrain";
 
 const COLOR: Record<Terrain, string> = {
@@ -12,10 +13,9 @@ const COLOR: Record<Terrain, string> = {
   water: "#1f7a82",
 };
 
-const W = 190;
-const H = 130;
-
-export function Minimap({ selected }: { selected: Tile | null }) {
+export function Minimap({ selected, scale = 1, tick = 0 }: { selected: Tile | null; scale?: number; tick?: number }) {
+  const W = Math.round(190 * scale);
+  const H = Math.round(130 * scale);
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -48,7 +48,16 @@ export function Minimap({ selected }: { selected: Tile | null }) {
       hex(W / 2 + t.x * k, H / 2 + t.z * k);
     }
     if (selected) hex(W / 2 + selected.x * k, H / 2 + selected.z * k, "#f3d98b");
-  }, [selected]);
+    const dot = (x: number, z: number, color: string, r: number) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(W / 2 + x * k, H / 2 + z * k, r, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    for (const e of Object.values(engine.enemies)) if (e.alive) dot(e.x, e.z, e.kind === "monster" ? "#ff4a3a" : "#9be36b", e.kind === "monster" ? 3.5 * scale : 2 * scale);
+    dot(engine.pos.warden.x, engine.pos.warden.z, "#34e0c0", 3 * scale);
+    dot(engine.pos.sentinel.x, engine.pos.sentinel.z, "#ff9a3c", 3 * scale);
+  }, [selected, scale, tick, W, H]);
 
   return (
     <canvas

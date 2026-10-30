@@ -57,10 +57,10 @@ function buildPeaks(): Peak[][] {
     if (t.terrain !== "mountain") continue;
     const rand = mulberry32(t.seed + 99);
     const edge = t.ring >= MAP_RADIUS - 2;
-    const n = edge ? 3 + Math.floor(rand() * 2) : 2 + Math.floor(rand() * 2);
+    const n = edge ? 2 + Math.floor(rand() * 2) : 1 + Math.floor(rand() * 2);
     for (let i = 0; i < n; i++) {
       const a = rand() * Math.PI * 2;
-      const d = Math.sqrt(rand()) * 0.6;
+      const d = Math.sqrt(rand()) * 0.65;
       const base = edge ? 1.15 : 0.8;
       lists[k++ % VARIANTS].push({
         x: t.x + Math.cos(a) * d,
