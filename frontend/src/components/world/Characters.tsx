@@ -68,7 +68,7 @@ function SelectRing({ id, radius, color }: { id: HeroId; radius: number; color: 
   const ref = useRef<Mesh>(null);
   useFrame(({ clock }) => {
     if (!ref.current) return;
-    ref.current.visible = engine.selected === id;
+    ref.current.visible = engine.selected === id && !engine.down[id];
     ref.current.rotation.z = clock.elapsedTime * 0.8;
   });
   return (
@@ -116,6 +116,13 @@ export function AshenWarden() {
     const C = common("warden", Math.min(delta, 0.05), walk);
     root.current.position.set(C.me.x, C.me.y, C.me.z);
     root.current.rotation.y = C.me.yaw;
+    if (engine.down.warden) {
+      // Fallen: lying where they dropped.
+      b.position.set(0, -0.12, 0);
+      b.rotation.set(-1.45, 0, 0);
+      b.scale.y = 1;
+      return;
+    }
     const w = engine.weapon.warden;
     const pBlade = progress("warden", "blade");
     const pStaff = progress("warden", "staff");
@@ -499,6 +506,12 @@ export function IronSentinel() {
     const C = common("sentinel", Math.min(delta, 0.05), walk);
     root.current.position.set(C.me.x, C.me.y, C.me.z);
     root.current.rotation.y = C.me.yaw;
+    if (engine.down.sentinel) {
+      b.position.set(0, -0.12, 0);
+      b.rotation.set(-1.45, 0, 0);
+      b.scale.y = 1;
+      return;
+    }
     const w = engine.weapon.sentinel;
     const pHam = progress("sentinel", "hammer");
     const pCan = progress("sentinel", "cannon");

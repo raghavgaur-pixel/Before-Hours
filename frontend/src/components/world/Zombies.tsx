@@ -5,6 +5,7 @@ import { useRef } from "react";
 import type { Group } from "three";
 import {
   VILLAIN_COUNT,
+  aliveHeroes,
   ZOMBIE_COUNT,
   emit,
   engine,
@@ -104,10 +105,10 @@ function Foe({ id, index, variant }: { id: string; index: number; variant: Varia
           }
         });
       }
-      const heroes = (["warden", "sentinel"] as HeroId[]).sort(
+      const heroes = aliveHeroes().sort(
         (a, c) => Math.hypot(engine.pos[a].x - e.x, engine.pos[a].z - e.z) - Math.hypot(engine.pos[c].x - e.x, engine.pos[c].z - e.z),
       );
-      const hd = Math.hypot(engine.pos[heroes[0]].x - e.x, engine.pos[heroes[0]].z - e.z);
+      const hd = heroes.length ? Math.hypot(engine.pos[heroes[0]].x - e.x, engine.pos[heroes[0]].z - e.z) : 99;
       if (hd < L.aggro) {
         s.kind = "hero";
         s.hero = heroes[0];

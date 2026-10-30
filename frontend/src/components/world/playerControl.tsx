@@ -54,7 +54,7 @@ export function PlayerDriver() {
     const me = engine.pos[hero];
     const p = engine.p;
     const k = view.keys;
-    const play = view.mode === "play" && view.active;
+    const play = view.mode === "play" && view.active && !engine.down[hero];
 
     // Camera-relative basis.
     const fx = -Math.sin(view.yaw);
