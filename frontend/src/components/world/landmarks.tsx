@@ -43,7 +43,7 @@ const MARKER_COLOR: Record<MarkerKind, string> = {
 export function ResourceMarker({ position, kind }: { position: V3; kind: MarkerKind }) {
   const c = MARKER_COLOR[kind];
   return (
-    <Billboard position={position}>
+    <Billboard position={position} scale={0.6}>
       <mesh>
         <circleGeometry args={[0.24, 24]} />
         <meshBasicMaterial color="#0b0d10" transparent opacity={0.85} />

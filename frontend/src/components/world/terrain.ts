@@ -53,6 +53,19 @@ export const TERRAIN_HEIGHT: Record<Terrain, number> = {
   mountain: 0.4,
 };
 
+export const BATTLE = { x: 0.2, z: 3.1 };
+export const PEN = { x: -2.6, z: 3.0 };
+export const GRAVEYARD = { x: -3.9, z: -0.9 };
+export const CLEARINGS = [
+  { ...BATTLE, r: 2.2 },
+  { ...PEN, r: 1.6 },
+  { ...GRAVEYARD, r: 1.4 },
+];
+
+export function inClearing(x: number, z: number, pad = 0) {
+  return CLEARINGS.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + pad);
+}
+
 export function generateTiles(radius = MAP_RADIUS): Tile[] {
   const tiles: Tile[] = [];
   for (let q = -radius; q <= radius; q++) {
@@ -83,6 +96,16 @@ export function generateTiles(radius = MAP_RADIUS): Tile[] {
       tiles.push({ q, r, x, z, terrain, height, ring, seed: (q + 20) * 97 + (r + 20) * 31 });
     }
   }
+  // Open ground for the battle, the cattle pen and the graveyard.
+  for (const c of CLEARINGS) {
+    for (const t of tiles) {
+      if (Math.hypot(t.x - c.x, t.z - c.z) < 1.2 && (t.terrain === "forest" || t.terrain === "mountain")) {
+        t.terrain = "grass";
+        t.height = TERRAIN_HEIGHT.grass;
+      }
+    }
+  }
+
   // Two outlying hamlets, like the east and west settlements in the concept art.
   const hamlet = (pred: (t: Tile) => boolean) => {
     const c = tiles
@@ -99,6 +122,20 @@ export function generateTiles(radius = MAP_RADIUS): Tile[] {
 }
 
 export const TILES = generateTiles();
+
+/** Height of the terrain under a world position (nearest tile top). */
+export function groundAt(x: number, z: number) {
+  let best = TILES[0];
+  let bd = Infinity;
+  for (const t of TILES) {
+    const d = (t.x - x) ** 2 + (t.z - z) ** 2;
+    if (d < bd) {
+      bd = d;
+      best = t;
+    }
+  }
+  return best.height;
+}
 
 export const TERRAIN_LABEL: Record<Terrain, string> = {
   village: "Settlement grounds",
