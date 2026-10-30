@@ -12,18 +12,20 @@ import { Bonfire, DeadTree, Graveyard, Lantern, Well } from "./DarkVillage";
 import { CIVILIANS, Civilian } from "./Civilians";
 import { Effect } from "./effects";
 import { Monster } from "./Monster";
+import { Waterfall } from "./Waterfall";
+import { Zombies } from "./Zombies";
 import { engine, tick } from "./battleEngine";
+import { LockReticle } from "./LockReticle";
+import { PlayerDriver, PlayerRig } from "./playerControl";
 import { ImpactSparks, Projectiles } from "./Projectiles";
 import { Bridge, ResourceMarker } from "./landmarks";
 import { Mountains } from "./Mountains";
 import { Crystal, House, Tower, Wheat } from "./props";
 import {
   BATTLE,
+  BRIDGE_TILES,
   GRAVEYARD,
   HEX_SIZE,
-  MONSTER_XZ,
-  SENTINEL_XZ,
-  WARDEN_XZ,
   MAP_RADIUS,
   PEN,
   TILES,
@@ -43,7 +45,6 @@ const TILE_COLOR: Record<Terrain, string> = {
   water: "#1d6c78",
 };
 
-type V3 = [number, number, number];
 type TreeSpec = { x: number; y: number; z: number; s: number; rot: number; hue: number };
 
 function scatter(rand: () => number, spread = 0.7): [number, number] {
@@ -245,7 +246,8 @@ const pick = (pred: (t: Tile) => boolean) => TILES.filter(pred).sort((a, b) => a
 /** Runs the battle simulation once per frame, and shakes the world on heavy hits. */
 function BattleDriver({ world }: { world: React.RefObject<ThreeGroup | null> }) {
   useFrame(({ clock }, delta) => {
-    tick(clock.elapsedTime, Math.min(delta, 0.1));
+    const dt = Math.min(delta, 0.1);
+    tick(engine.now + dt, dt);
     const w = world.current;
     if (w) {
       const s = engine.shake * 0.06;
@@ -260,9 +262,15 @@ function CameraRig({ focusKey }: { focusKey: number }) {
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
   useEffect(() => {
-    if (focusKey === 0 || !controls) return;
-    controls.target.set(BATTLE.x + 0.3, 0.5, BATTLE.z);
-    camera.position.set(BATTLE.x + 2.2, 3.4, BATTLE.z + 5.2);
+    if (!controls) return;
+    if (focusKey === 0) {
+      // Entering overview: back to the wide shot of the whole valley.
+      controls.target.set(0, 0, -0.9);
+      camera.position.set(0, 17, 13.2);
+    } else {
+      controls.target.set(BATTLE.x + 0.3, 0.5, BATTLE.z);
+      camera.position.set(BATTLE.x + 2.2, 3.4, BATTLE.z + 5.2);
+    }
     controls.update();
   }, [focusKey, camera, controls]);
   return null;
@@ -273,55 +281,34 @@ export function WorldScene({
   onSelect,
   onClear,
   focusKey = 0,
+  playMode = false,
+  paused = false,
 }: {
   selected: Tile | null;
   onSelect: (t: Tile) => void;
   onClear: () => void;
   focusKey?: number;
+  playMode?: boolean;
+  paused?: boolean;
 }) {
   const worldRef = useRef<ThreeGroup>(null);
-  const face = (a: [number, number], b: [number, number]) => Math.atan2(b[0] - a[0], b[1] - a[1]);
-  const wardenXZ = WARDEN_XZ;
-  const sentinelXZ = SENTINEL_XZ;
-  const monsterXZ = MONSTER_XZ;
-  const at = (xz: [number, number]): V3 => [xz[0], groundAt(xz[0], xz[1]), xz[1]];
-
-  // Local (hero-space) offset -> world position, so projectiles leave the right hand/muzzle.
-  const toWorld = (xz: [number, number], yaw: number, scale: number, local: V3): V3 => {
-    const [lx, ly, lz] = local.map((v) => v * scale) as V3;
-    return [
-      xz[0] + lx * Math.cos(yaw) + lz * Math.sin(yaw),
-      groundAt(xz[0], xz[1]) + ly,
-      xz[1] - lx * Math.sin(yaw) + lz * Math.cos(yaw),
-    ];
-  };
-  const wardenYaw = face(wardenXZ, monsterXZ);
-  const sentinelYaw = face(sentinelXZ, monsterXZ);
-  const boltFrom = toWorld(wardenXZ, wardenYaw, 1.1, [-0.4, 1.0, 0.15]);
-  const shellFrom = toWorld(sentinelXZ, sentinelYaw, 1.15, [0.3, 0.86, 0.36]);
-  const arrowFrom = toWorld(wardenXZ, wardenYaw, 1.1, [-0.1, 0.9, 0.5]);
-  const wardenBase = at(wardenXZ);
-  const sentinelBase = at(sentinelXZ);
-  const monsterBase = at(monsterXZ);
-  const monsterChest: V3 = [monsterBase[0], monsterBase[1] + 1.1, monsterBase[2]];
-  const monsterHead: V3 = [monsterBase[0], monsterBase[1] + 1.75, monsterBase[2]];
-
   const { bridges, markers } = useMemo(() => {
-    const water = (zTarget: number) =>
-      TILES.filter((t) => t.terrain === "water" && t.ring <= 6)
-        .sort((a, b) => Math.abs(a.z - zTarget) - Math.abs(b.z - zTarget))[0];
-    const bridgeTiles = [water(-3), water(3)].filter(Boolean) as Tile[];
     const m: { tile: Tile | undefined; kind: "wood" | "stone" | "grain" | "mine" }[] = [
       { tile: pick((t) => t.terrain === "forest" && t.x < -2 && t.ring >= 3), kind: "wood" },
       { tile: pick((t) => t.terrain === "mountain" && t.x > 1 && t.z < -3 && t.ring >= 4), kind: "stone" },
       { tile: pick((t) => t.terrain === "farm"), kind: "grain" },
       { tile: pick((t) => t.terrain === "mountain" && t.x > 1 && t.z > 3 && t.ring >= 4), kind: "mine" },
     ];
-    return { bridges: bridgeTiles, markers: m };
+    return { bridges: BRIDGE_TILES, markers: m };
   }, []);
 
   return (
-    <Canvas camera={{ position: [0, 17, 15], fov: 38 }} dpr={[1, 2]} onPointerMissed={onClear}>
+    <Canvas
+      camera={{ position: [0, 17, 15], fov: 38 }}
+      dpr={[1, 2]}
+      frameloop={paused ? "never" : "always"}
+      onPointerMissed={onClear}
+    >
       <color attach="background" args={["#0a0e12"]} />
       <fog attach="fog" args={["#0a0e12", 20, 42]} />
 
@@ -364,26 +351,23 @@ export function WorldScene({
           ),
       )}
 
-      <AshenWarden position={at(wardenXZ)} facing={face(wardenXZ, monsterXZ)} />
-      <IronSentinel position={at(sentinelXZ)} facing={face(sentinelXZ, monsterXZ)} />
-      <Monster position={at(monsterXZ)} facing={face(monsterXZ, wardenXZ)} />
-      <Projectiles boltFrom={boltFrom} arrowFrom={arrowFrom} shellFrom={shellFrom} target={monsterChest} />
-      <ImpactSparks
-        positions={{
-          monster: monsterChest,
-          warden: [wardenBase[0], wardenBase[1] + 0.6, wardenBase[2]],
-          sentinel: [sentinelBase[0], sentinelBase[1] + 0.6, sentinelBase[2]],
-        }}
-      />
-      <Effect name="wardenCast" position={boltFrom} />
-      <Effect name="wardenBolt" position={monsterChest} />
-      <Effect name="sentinelMuzzle" position={shellFrom} />
-      <Effect name="shellImpact" position={monsterChest} />
-      <Effect name="monsterRoar" position={monsterHead} />
-      <Effect name="hitSpark" position={monsterChest} />
+      <Zombies />
+      <Waterfall />
+      <AshenWarden />
+      <IronSentinel />
+      <Monster />
+      <Projectiles />
+      <ImpactSparks />
+      <LockReticle />
+      <Effect name="wardenCast" />
+      <Effect name="wardenBolt" />
+      <Effect name="sentinelMuzzle" />
+      <Effect name="shellImpact" />
+      <Effect name="monsterRoar" />
+      <Effect name="hitSpark" />
 
       {CIVILIANS.map((c, i) => (
-        <Civilian key={i} {...c} phase={i * 3.1} />
+        <Civilian key={i} id={i} {...c} phase={i * 3.1} />
       ))}
 
       <Bonfire x={BATTLE.x - 1.9} z={BATTLE.z + 1.0} />
@@ -414,9 +398,11 @@ export function WorldScene({
 
       </group>
 
-      <CameraRig focusKey={focusKey} />
+      <PlayerDriver />
+      {playMode ? <PlayerRig /> : <CameraRig focusKey={focusKey} />}
       <OrbitControls
         makeDefault
+        enabled={!playMode}
         target={[0, 0, 1]}
         minDistance={6}
         maxDistance={30}

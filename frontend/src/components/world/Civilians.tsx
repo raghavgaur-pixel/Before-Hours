@@ -45,6 +45,7 @@ function pickHide(from: Pt, avoid?: number) {
  * is dead they return to their normal route or post.
  */
 export function Civilian({
+  id,
   kind,
   route,
   speed = 0.25,
@@ -53,6 +54,7 @@ export function Civilian({
   phase = 0,
   scale = 1,
 }: {
+  id: number;
   kind: CivilianKind;
   route: Pt[];
   speed?: number;
@@ -90,7 +92,29 @@ export function Civilian({
     const t = clock.elapsedTime + phase;
     const s = st.current;
     const brave = kind === "guard";
-    const fleeing = engine.panic > 0.55 && !brave;
+    const civ = (engine.civs[id] ??= { x: s.x, z: s.z, downUntil: 0 });
+    civ.x = s.x;
+    civ.z = s.z;
+    const down = engine.now < civ.downUntil;
+    let nearHusk = false;
+    for (const en of Object.values(engine.enemies)) {
+      if (en.kind === "zombie" && en.alive && Math.hypot(en.x - s.x, en.z - s.z) < 2.2) nearHusk = true;
+    }
+    const fleeing = (engine.panic > 0.55 || nearHusk) && !brave && !down;
+
+    if (down) {
+      // Dragged to the ground by a husk.
+      g.position.set(s.x, groundAt(s.x, s.z) + 0.03, s.z);
+      g.rotation.y = s.yaw;
+      if (lean.current) {
+        lean.current.rotation.x = -1.45;
+        lean.current.position.x = Math.sin(t * 25) * 0.008;
+      }
+      armL.current?.rotation.set(-1.2, 0, -2.2 + Math.sin(t * 14) * 0.5);
+      armR.current?.rotation.set(-1.2, 0, 2.2 - Math.sin(t * 14) * 0.5);
+      if (bang.current) bang.current.visible = true;
+      return;
+    }
 
     let tx = s.x;
     let tz = s.z;
@@ -279,7 +303,7 @@ export function Civilian({
       </group>
 
       {/* "!" over the head while panicking. */}
-      <Billboard position={[0, 0.62, 0]}>
+      <Billboard position={[0, 0.62, 0]} scale={0.6}>
         <group ref={bang} visible={false}>
           <mesh position={[0, 0.03, 0]}>
             <capsuleGeometry args={[0.012, 0.045, 3, 6]} />
