@@ -33,6 +33,7 @@ The current build focuses on bringing the world and its combat to life. Settleme
 | Combat encounter | Third-person controls, two switchable heroes, six weapons, abilities, stamina, dodging, blocking, parrying and enemy AI | Combat runs locally in the browser; it is not server-authoritative or multiplayer |
 | Living environment | Hostile creatures, villagers, guards, wildlife and contextual interactions | NPC behaviour is part of the local prototype |
 | Backend foundation | Fastify API, Prisma schema, PostgreSQL support and authentication tests | No world, settlement-economy or battle-state APIs yet |
+| Standalone loading/login concept | Root-level HTML, panorama and optional Sketchfab scene files are present | Separate from the Next.js app and incomplete as committed |
 | Persistent strategy gameplay | Product direction and initial account/resource models are established | Territory, construction, production, offline simulation, PvP and shared-world persistence remain future work |
 
 This distinction is important: the current repository demonstrates a substantial 3D game prototype and an account/backend foundation. It does not yet represent the complete persistent multiplayer game described by the long-term vision.
@@ -235,11 +236,21 @@ Before-Hours/
 ├── ability/                      # GLB ability/effect assets
 ├── skin/                         # Character models, textures and related assets
 ├── controls.txt                  # Keyboard and mouse control reference
+├── bg-login.png                  # Asset for the standalone loading/login experiment
+├── bg.js                         # Procedural animated panorama experiment
+├── index.html                    # Standalone loading/login page prototype
+├── scene.js                      # Boot splash and optional Sketchfab scene logic
 ├── NitroGen                      # Git submodule pointer; see the asset note below
 ├── package.json                  # Root development scripts
 ├── pnpm-workspace.yaml
 └── README.md
 ```
+
+### Standalone loading/login-page experiment
+
+The repository root also contains `index.html`, `bg.js`, `scene.js` and `bg-login.png`. These files form a separate **Before Hours** splash/login-page experiment; they are not part of the Next.js application under `frontend/` and are not the active authentication flow described above.
+
+The experiment is incomplete in the current commit: `index.html` references `style.css` and `app.js`, but neither file is present in the repository. The procedural panorama in `bg.js` is also not loaded by the current `index.html`. Treat this as an unfinished standalone concept, not as a working alternate frontend. Its optional Sketchfab scene references **“Plaza Night Time” by patrix**, credited in the page markup under **CC BY-SA 4.0**.
 
 ### 3D asset notes
 
