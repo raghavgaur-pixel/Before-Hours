@@ -1,11 +1,13 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  schemas   = ["public", "auth"]
 }
 
 model User {
@@ -19,6 +21,7 @@ model User {
   settlement   Settlement?
 
   @@map("users")
+  @@schema("public")
 }
 
 model Character {
@@ -38,6 +41,7 @@ model Character {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("characters")
+  @@schema("public")
 }
 
 model Settlement {
@@ -53,4 +57,5 @@ model Settlement {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("settlements")
+  @@schema("public")
 }
