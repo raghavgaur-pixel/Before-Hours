@@ -19,6 +19,7 @@ import {
   parry,
   releaseCharge,
   selectHero,
+  selectSkin,
   selectWeapon,
   setBlock,
   startCharge,
@@ -35,6 +36,7 @@ import {
 } from "./battleEngine";
 import { Minimap } from "./Minimap";
 import { view } from "./playerControl";
+import { SKINS } from "./skins";
 import { TERRAIN_LABEL, Tile } from "./terrain";
 import { WorldScene } from "./WorldScene";
 
@@ -58,6 +60,8 @@ const GLYPH: Record<WeaponId | "special", string> = {
   hammer: "⚒",
   cannon: "◉",
   shield: "⛨",
+  daggers: "†",
+  gauntlets: "✊",
   special: "★",
 };
 
@@ -94,12 +98,14 @@ const CONTROLS: [string, string][] = [
   ["Map", "M"],
   ["Gestures", "G"],
   ["Pause / Settings", "Esc"],
-  ["Switch weapon", "1 · 2 · 3"],
+  ["Switch weapon", "1 · 2 · 3 · 4"],
+  ["Swap to next weapon", "Z"],
+  ["Skins", "J"],
   ["Swap hero", "X"],
   ["Auto-battle · Overview camera", "T · O"],
 ];
 
-type Panel = null | "inventory" | "status" | "equipment" | "map" | "gestures" | "pause";
+type Panel = null | "inventory" | "status" | "equipment" | "map" | "gestures" | "skins" | "pause";
 
 function Bar({ value, max, color, label }: { value: number; max: number; color: string; label?: string }) {
   return (
@@ -190,6 +196,9 @@ function ActionBar({ hero }: { hero: HeroId }) {
 
       <div className="flex w-[min(92vw,430px)] gap-3">
         <div className="flex-1 space-y-1">
+          <p className="text-[10px] text-muted">
+            Weapon <span className="text-foreground">{w.name}</span> · <span className="text-gold">Z</span> swap · <span className="text-gold">J</span> skins
+          </p>
           <Bar value={engine.hp[hero]} max={engine.maxHp[hero]} color={c.bar} label={`${HERO_NAME[hero]} HP`} />
           <Bar value={p.stamina} max={p.maxStamina} color="bg-emerald-400" label="Stamina" />
           {p.charging && <Bar value={chargeFrac()} max={1} color="bg-amber-400" label="Charge" />}
@@ -412,7 +421,7 @@ export function WorldView() {
         e.preventDefault();
         return;
       }
-      if (panelRef.current === "equipment" && k >= "1" && k <= "3") {
+      if (panelRef.current === "equipment" && k >= "1" && k <= "4") {
         selectWeapon(engine.selected, Number(k) - 1);
         e.preventDefault();
         return;
@@ -424,6 +433,7 @@ export function WorldView() {
       else if (k === "k") toggle("equipment");
       else if (k === "m") toggle("map");
       else if (k === "g") toggle("gestures");
+      else if (k === "j") toggle("skins");
       else if (k === "o") setModeBoth(view.mode === "play" ? "overview" : "play");
       else if (!canAct() || panelRef.current === "pause") return;
       else if (k === " ") {
@@ -437,9 +447,10 @@ export function WorldView() {
       else if (k === "v") switchTarget();
       else if (k === "x") toggleHero();
       else if (k === "t") toggleAuto();
+      else if (k === "z") cycleWeapon(e.shiftKey ? -1 : 1);
       else if (k === "[" || k === "pageup") cycleWeapon(-1);
       else if (k === "]" || k === "pagedown") cycleWeapon(1);
-      else if (k >= "1" && k <= "3") selectWeapon(engine.selected, Number(k) - 1);
+      else if (k >= "1" && k <= "4") selectWeapon(engine.selected, Number(k) - 1);
       else if (["w", "a", "s", "d", "shift"].includes(k)) return;
       else return;
       e.preventDefault();
@@ -735,6 +746,46 @@ export function WorldView() {
                 </li>
               ))}
             </ul>
+          </Modal>
+        )}
+
+        {panel === "skins" && (
+          <Modal title="Skins" onClose={() => setPanel(null)} wide>
+            <div className="space-y-4">
+              {(["warden", "sentinel"] as HeroId[]).map((h) => (
+                <div key={h}>
+                  <p className={`mb-1.5 text-xs uppercase tracking-widest ${HERO_COLOR[h].text}`}>{HERO_NAME[h]}</p>
+                  <ul className="grid gap-2 sm:grid-cols-3">
+                    {SKINS[h].map((s) => {
+                      const on = engine.skin[h] === s.id;
+                      return (
+                        <li key={s.id}>
+                          <button
+                            type="button"
+                            onClick={() => selectSkin(h, s.id)}
+                            className={`h-full w-full rounded border p-2 text-left text-xs transition-colors ${
+                              on ? `${HERO_COLOR[h].border} bg-white/5` : "border-white/10 hover:border-gold/50"
+                            }`}
+                          >
+                            <span className="mb-1.5 flex gap-1">
+                              {[s.palette.metal, s.palette.cloak, s.palette.glow].map((c) => (
+                                <span key={c} className="h-3 w-5 rounded-sm border border-white/10" style={{ background: c }} />
+                              ))}
+                              <span className="ml-auto text-[9px] uppercase tracking-widest text-muted">
+                                {s.kind === "model" ? "Legendary" : "Recolour"}
+                              </span>
+                            </span>
+                            <span className="block text-foreground">{s.name}</span>
+                            <span className="block text-muted">{s.desc}</span>
+                            {on && <span className="mt-1 block text-[10px] text-gold">Equipped</span>}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </Modal>
         )}
 

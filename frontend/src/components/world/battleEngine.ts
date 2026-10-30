@@ -4,7 +4,7 @@ import { GRAVEYARD, INTERACTABLES, MONSTER_XZ, SENTINEL_XZ, WARDEN_XZ, groundAt 
 export type HeroId = "warden" | "sentinel";
 /** A hero id, or an enemy id ("monster", "z0", ...). */
 export type Actor = string;
-export type WeaponId = "blade" | "staff" | "bow" | "hammer" | "cannon" | "shield";
+export type WeaponId = "blade" | "staff" | "bow" | "daggers" | "hammer" | "cannon" | "shield" | "gauntlets";
 export type AnimKind = WeaponId | "rend" | "quake" | "swipe" | "slam" | "lunge" | "roar" | "die";
 export type AttackMode = "light" | "heavy" | "strong" | "skill";
 export type ItemId = "potion" | "flask" | "salve";
@@ -26,11 +26,13 @@ export const WEAPONS: Record<HeroId, Weapon[]> = {
     { id: "blade", hero: "warden", name: "Wraith Blade", type: "Melee", damage: 18, cooldown: 1.4, desc: "Two fast slashes. Cheap and reliable." },
     { id: "staff", hero: "warden", name: "Hexstaff", type: "Magic", damage: 27, cooldown: 3.2, desc: "Channel a volley of three arcane bolts." },
     { id: "bow", hero: "warden", name: "Ashen Longbow", type: "Ranged", damage: 24, cooldown: 2.2, desc: "A drawn shot with a glowing arrow, from range." },
+    { id: "daggers", hero: "warden", name: "Veil Daggers", type: "Melee", damage: 21, cooldown: 1.2, desc: "Three rapid alternating stabs. Fast, close range." },
   ],
   sentinel: [
     { id: "hammer", hero: "sentinel", name: "Siege Hammer", type: "Melee", damage: 28, cooldown: 2.4, desc: "Overhead slam that cracks the ground." },
     { id: "cannon", hero: "sentinel", name: "Ember Cannon", type: "Ranged", damage: 30, cooldown: 3.6, desc: "Lobs an explosive shell from the shoulder cannon." },
     { id: "shield", hero: "sentinel", name: "Bulwark Shield", type: "Melee", damage: 14, cooldown: 1.8, desc: "Shield bash. Quick, and staggers the beast." },
+    { id: "gauntlets", hero: "sentinel", name: "Quake Gauntlets", type: "Melee", damage: 30, cooldown: 2.6, desc: "A jab followed by a crushing uppercut." },
   ],
 };
 
@@ -48,7 +50,7 @@ export const ITEM_DEFS: Record<ItemId, { name: string; desc: string; glyph: stri
 export const GESTURES = ["wave", "cheer", "bow", "taunt"] as const;
 export type Gesture = (typeof GESTURES)[number];
 
-const MELEE: AnimKind[] = ["blade", "hammer", "shield", "rend", "quake"];
+const MELEE: AnimKind[] = ["blade", "daggers", "hammer", "shield", "gauntlets", "rend", "quake"];
 export const isMelee = (k: AnimKind) => MELEE.includes(k);
 
 /** Timing (seconds from the start of an action) of launches, flight and hits. */
@@ -56,6 +58,8 @@ export const TIMELINE: Record<AnimKind, { dur: number; hits: number[]; launches?
   blade: { dur: 1.1, hits: [0.38, 0.74] },
   staff: { dur: 1.7, hits: [1.05, 1.25, 1.45], launches: [0.7, 0.9, 1.1], flight: 0.35 },
   bow: { dur: 1.4, hits: [1.0], launches: [0.7], flight: 0.3 },
+  daggers: { dur: 1.1, hits: [0.28, 0.5, 0.72] },
+  gauntlets: { dur: 1.5, hits: [0.45, 1.0] },
   rend: { dur: 1.7, hits: [1.0] },
   hammer: { dur: 1.6, hits: [1.0] },
   cannon: { dur: 1.5, hits: [1.2], launches: [0.6], flight: 0.6 },
@@ -124,6 +128,12 @@ export const engine = {
   /** Civilian positions, written by each villager every frame so husks can hunt them. */
   civs: [] as { x: number; z: number; downUntil: number }[],
   alive: true,
+  /** Chosen look per hero (see skins.ts). */
+  skin: { warden: "warden-classic", sentinel: "sentinel-classic" } as Record<HeroId, string>,
+  /** When each hero last changed weapon, to drive the swap flourish. */
+  swapAt: { warden: -9, sentinel: -9 } as Record<HeroId, number>,
+  victoryUntil: 0,
+  flask: null as { start: number; hero: HeroId; target: string } | null,
   auto: false,
   paused: false,
   anim: {} as Record<Actor, Anim | undefined>,
@@ -220,6 +230,17 @@ export function hitFlash(a: Actor, decay = 7) {
   return v;
 }
 
+/** The hero whose special attack has just landed, and how long ago (seconds), if any. */
+export function specialHit() {
+  for (const hero of ["warden", "sentinel"] as HeroId[]) {
+    const a = engine.anim[hero];
+    if (!a || (a.kind !== "rend" && a.kind !== "quake")) continue;
+    const age = engine.now - (a.start + TIMELINE[a.kind].hits[0]);
+    if (age >= 0 && age < 1.1) return { hero, age };
+  }
+  return null;
+}
+
 const COLOR: Record<string, string> = { warden: "#7ff5df", sentinel: "#ff9a3c" };
 
 function impact(target: Actor, color: string, power: number) {
@@ -294,6 +315,7 @@ function killEnemy(e: Enemy, hero: HeroId) {
     engine.alive = false;
     engine.anim.monster = { kind: "die", start: engine.now, dur: TIMELINE.die.dur };
     engine.shake = 1;
+    engine.victoryUntil = engine.now + 5;
     say("The Gravemaw is slain!");
     schedule(engine.now + 9, () => {
       e.alive = true;
@@ -491,7 +513,8 @@ export function consumeItem() {
   } else {
     const t = pickTarget(hero);
     if (t) {
-      schedule(engine.now + 0.5, () => damageEnemy(t.id, hero, 30, 1.5));
+      engine.flask = { start: engine.now, hero, target: t.id };
+      schedule(engine.now + 0.55, () => damageEnemy(t.id, hero, 30, 1.5));
       say("You hurl an Ember Flask");
     } else {
       it.count++;
@@ -549,6 +572,7 @@ export function selectWeapon(hero: HeroId, idx: number) {
   const w = WEAPONS[hero][idx];
   if (w && engine.weapon[hero] !== w.id && !busy(hero)) {
     engine.weapon[hero] = w.id;
+    engine.swapAt[hero] = engine.now;
     selectHero(hero);
     emit();
   }
@@ -558,6 +582,13 @@ export function cycleWeapon(dir: 1 | -1) {
   const list = WEAPONS[hero];
   const i = list.findIndex((w) => w.id === engine.weapon[hero]);
   selectWeapon(hero, (i + dir + list.length) % list.length);
+}
+
+export function selectSkin(hero: HeroId, id: string) {
+  if (engine.skin[hero] === id) return;
+  engine.skin[hero] = id;
+  say(`${HERO_NAME[hero]} changes skin`);
+  emit();
 }
 
 export function toggleAuto() {

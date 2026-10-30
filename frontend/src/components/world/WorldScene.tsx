@@ -1,6 +1,6 @@
 "use client";
 
-import { OrbitControls, Sparkles } from "@react-three/drei";
+import { Environment, Lightformer, OrbitControls, Sparkles } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { Group as ThreeGroup } from "three";
@@ -10,6 +10,7 @@ import { CattlePen, Crow, Deer, Wolf } from "./Animals";
 import { AshenWarden, IronSentinel } from "./Characters";
 import { Bonfire, DeadTree, Graveyard, Lantern, Well } from "./DarkVillage";
 import { CIVILIANS, Civilian } from "./Civilians";
+import { FlaskThrow } from "./effectModels";
 import { Effect } from "./effects";
 import { Monster } from "./Monster";
 import { Waterfall } from "./Waterfall";
@@ -316,6 +317,11 @@ export function WorldScene({
       <directionalLight position={[-9, 14, 8]} intensity={1.9} color="#d3dcf5" />
       <directionalLight position={[10, 6, -6]} intensity={0.5} color="#4f8f9c" />
       <hemisphereLight args={["#5d7a90", "#1d2418", 0.5]} />
+      <Environment resolution={64} frames={1} environmentIntensity={0.35}>
+        <Lightformer form="rect" intensity={2.2} color="#b8c8ff" position={[-5, 6, 3]} scale={[8, 3, 1]} />
+        <Lightformer form="rect" intensity={1.2} color="#ffb070" position={[5, 2, -3]} scale={[6, 2, 1]} />
+        <Lightformer form="ring" intensity={1} color="#7fd8ee" position={[0, 5, -6]} scale={4} />
+      </Environment>
 
       <BattleDriver world={worldRef} />
       <group ref={worldRef}>
@@ -365,6 +371,8 @@ export function WorldScene({
       <Effect name="shellImpact" />
       <Effect name="monsterRoar" />
       <Effect name="hitSpark" />
+      <Effect name="specialBurst" />
+      <FlaskThrow />
 
       {CIVILIANS.map((c, i) => (
         <Civilian key={i} id={i} {...c} phase={i * 3.1} />
