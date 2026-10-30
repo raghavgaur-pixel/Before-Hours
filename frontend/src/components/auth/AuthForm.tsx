@@ -83,7 +83,7 @@ export function AuthForm({ onDone }: { onDone?: (s: Session) => void }) {
             autoComplete={mode === "register" ? "new-password" : "current-password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder={mode === "register" ? "At least 8 characters" : "••••••••"}
+            placeholder={mode === "register" ? "At least 8 characters" : "Your password"}
           />
           <button type="button" onClick={() => setShow((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-muted hover:text-gold">
             {show ? "Hide" : "Show"}
