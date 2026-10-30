@@ -23,6 +23,7 @@ import {
   parry,
   releaseCharge,
   resetProgress,
+  spawnBoss,
   selectHero,
   selectSkin,
   selectWeapon,
@@ -321,6 +322,8 @@ export function WorldView() {
   const paused = panel === "pause";
 
   useEffect(() => {
+    // Dev-only handle for testing, e.g. window.__engine.enemies.boss.hp = 1
+    if (process.env.NODE_ENV !== "production") (window as unknown as { __engine: typeof engine }).__engine = engine;
     const id = setInterval(() => setTick((n) => n + 1), 100);
     return () => clearInterval(id);
   }, []);
@@ -579,6 +582,32 @@ export function WorldView() {
             )}
             <p className="text-2xl font-semibold tracking-widest text-gold">{engine.prog.banner.title}</p>
             <p className="mt-0.5 text-xs text-muted">{engine.prog.banner.sub}</p>
+          </div>
+        )}
+
+        {engine.prog.boss === "arrived" && engine.enemies.boss.alive && !(engine.prog.banner && engine.now < engine.prog.banner.until) && (
+          <div className="absolute left-1/2 top-[132px] w-[min(70vw,460px)] -translate-x-1/2">
+            <p className="mb-1 text-center text-xs tracking-[0.3em] text-gold">THE GRAFTED KING</p>
+            <div className="h-2.5 rounded border border-gold/50 bg-black/70">
+              <div className="h-full rounded-sm bg-amber-500" style={{ width: `${(engine.enemies.boss.hp / engine.enemies.boss.maxHp) * 100}%` }} />
+            </div>
+          </div>
+        )}
+
+        {engine.prog.boss === "dead" && engine.now - engine.prog.bossDiedAt > 2.5 && (
+          <div className="pointer-events-auto absolute left-1/2 top-1/2 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded border border-gold/60 bg-black/90 p-5 text-center backdrop-blur">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/boss.webp" alt="" className="mx-auto mb-3 h-24 rounded border border-gold/40 opacity-70 grayscale" />
+            <p className="text-3xl font-semibold tracking-[0.3em] text-gold">VICTORY</p>
+            <p className="mt-1 text-sm text-muted">The Grafted King is slain. The valley is safe.</p>
+            <p className="mt-3 text-xs text-muted">
+              Party level {engine.prog.level} · husks {engine.prog.kills.zombie} · raiders {engine.prog.kills.villain} · beast {engine.prog.kills.monster}
+            </p>
+            <div className="mt-4 flex justify-center gap-2">
+              <button type="button" onClick={resetProgress} className="rounded border border-gold bg-gold/10 px-4 py-2 text-sm text-gold">
+                Play again
+              </button>
+            </div>
           </div>
         )}
 
@@ -841,6 +870,9 @@ export function WorldView() {
               </button>
               <button type="button" onClick={() => addXp(XP_PER_LEVEL)} className="rounded border border-white/20 px-3 py-2 text-xs text-muted hover:border-gold hover:text-gold">
                 Test: +{XP_PER_LEVEL} XP
+              </button>
+              <button type="button" onClick={spawnBoss} className="rounded border border-white/20 px-3 py-2 text-xs text-muted hover:border-gold hover:text-gold">
+                Test: summon final boss
               </button>
               <button type="button" onClick={resetProgress} className="rounded border border-white/20 px-3 py-2 text-xs text-muted hover:border-gold hover:text-gold">
                 Test: reset progress

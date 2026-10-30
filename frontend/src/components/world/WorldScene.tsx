@@ -9,6 +9,7 @@ import { Color, InstancedMesh, Object3D } from "three";
 import { CattlePen, Crow, Deer, Wolf } from "./Animals";
 import { AshenWarden, IronSentinel } from "./Characters";
 import { Bonfire, DeadTree, Graveyard, Lantern, Well } from "./DarkVillage";
+import { Boss } from "./Boss";
 import { CIVILIANS, Civilian } from "./Civilians";
 import { FlaskThrow } from "./effectModels";
 import { Effect } from "./effects";
@@ -364,6 +365,7 @@ export function WorldScene({
       <AshenWarden />
       <IronSentinel />
       <Monster />
+      <Boss />
       <Projectiles />
       <ImpactSparks />
       <LockReticle />

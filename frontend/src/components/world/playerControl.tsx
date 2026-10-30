@@ -127,6 +127,9 @@ export function PlayerRig() {
     const dt = Math.min(delta, 0.05);
     const me = engine.pos[engine.selected];
     const p = engine.p;
+    // Pull the camera back so a boss that towers over the heroes stays in frame.
+    const wantDist = engine.enemies.boss.alive && engine.prog.boss === "arrived" ? 8.2 : 4.8;
+    view.dist += (wantDist - view.dist) * Math.min(1, dt * 1.5);
     const target = p.lock && p.target ? engine.enemies[p.target] : null;
     if (target?.alive) {
       const want = Math.atan2(-(target.x - me.x), -(target.z - me.z));
