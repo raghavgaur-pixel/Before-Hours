@@ -24,7 +24,7 @@ import {
   interact,
   parry,
   releaseCharge,
-  resetProgress,
+  restartGame,
   retryAfterDeath,
   spawnBoss,
   stageFor,
@@ -358,6 +358,21 @@ export function WorldView() {
     el.requestPointerLock();
   };
 
+  const playAgain = () => {
+    restartGame();
+    takeControl();
+  };
+  const playAgainRef = useRef(playAgain);
+  useEffect(() => {
+    playAgainRef.current = playAgain;
+  });
+
+  // Free the mouse the moment an end screen appears, so its buttons can be clicked.
+  const ended = engine.gameOver || engine.prog.boss === "dead";
+  useEffect(() => {
+    if (ended && document.pointerLockElement) document.exitPointerLock();
+  }, [ended]);
+
   // Pointer lock bookkeeping + mouse look.
   useEffect(() => {
     const el = box.current;
@@ -416,8 +431,10 @@ export function WorldView() {
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       const k = e.key.toLowerCase();
 
-      if (k === "enter" && engine.gameOver) {
-        retryAfterDeath();
+      const victory = engine.prog.boss === "dead";
+      if ((engine.gameOver || victory) && (k === "enter" || k === "r")) {
+        if (k === "r" && engine.gameOver) retryAfterDeath();
+        else playAgainRef.current();
         e.preventDefault();
         return;
       }
@@ -603,37 +620,6 @@ export function WorldView() {
             <p className="mb-1 text-center text-xs tracking-[0.3em] text-gold">THE GRAFTED KING</p>
             <div className="h-2.5 rounded border border-gold/50 bg-black/70">
               <div className="h-full rounded-sm bg-amber-500" style={{ width: `${(engine.enemies.boss.hp / engine.enemies.boss.maxHp) * 100}%` }} />
-            </div>
-          </div>
-        )}
-
-        {engine.gameOver && (
-          <div className="pointer-events-auto absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-[2px]">
-            <div className="rounded border border-red-900/80 bg-black/90 px-10 py-6 text-center">
-              <p className="text-4xl font-semibold tracking-[0.4em] text-red-500">YOU DIED</p>
-              <p className="mt-2 text-xs text-muted">
-                Party level {engine.prog.level} · {STAGE_LABEL[stageFor(engine.prog.level)]}
-              </p>
-              <button type="button" onClick={retryAfterDeath} className="mt-4 rounded border border-gold bg-gold/10 px-5 py-2 text-sm text-gold">
-                Rise again (Enter)
-              </button>
-            </div>
-          </div>
-        )}
-
-        {engine.prog.boss === "dead" && engine.now - engine.prog.bossDiedAt > 4.6 && (
-          <div className="pointer-events-auto absolute left-1/2 top-1/2 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded border border-gold/60 bg-black/90 p-5 text-center backdrop-blur">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/boss.webp" alt="" className="mx-auto mb-3 h-24 rounded border border-gold/40 opacity-70 grayscale" />
-            <p className="text-3xl font-semibold tracking-[0.3em] text-gold">VICTORY</p>
-            <p className="mt-1 text-sm text-muted">The Grafted King is slain. The valley is safe.</p>
-            <p className="mt-3 text-xs text-muted">
-              Party level {engine.prog.level} · husks {engine.prog.kills.zombie} · raiders {engine.prog.kills.villain} · beast {engine.prog.kills.monster}
-            </p>
-            <div className="mt-4 flex justify-center gap-2">
-              <button type="button" onClick={resetProgress} className="rounded border border-gold bg-gold/10 px-4 py-2 text-sm text-gold">
-                Play again
-              </button>
             </div>
           </div>
         )}
@@ -900,8 +886,8 @@ export function WorldView() {
               <button type="button" onClick={spawnBoss} className="rounded border border-white/20 px-3 py-2 text-xs text-muted hover:border-gold hover:text-gold">
                 Test: summon final boss
               </button>
-              <button type="button" onClick={resetProgress} className="rounded border border-white/20 px-3 py-2 text-xs text-muted hover:border-gold hover:text-gold">
-                Test: reset progress
+              <button type="button" onClick={playAgain} className="rounded border border-white/20 px-3 py-2 text-xs text-muted hover:border-gold hover:text-gold">
+                Restart game
               </button>
               <label className="flex items-center gap-2 text-xs text-muted">
                 Mouse sensitivity
@@ -933,6 +919,58 @@ export function WorldView() {
           </Modal>
         )}
       </div>
+      {engine.gameOver && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-[2px]">
+          <div className="rounded border border-red-900/80 bg-black/90 px-10 py-6 text-center">
+            <p className="text-4xl font-semibold tracking-[0.4em] text-red-500">YOU DIED</p>
+            <p className="mt-2 text-xs text-muted">
+              Party level {engine.prog.level} · {STAGE_LABEL[stageFor(engine.prog.level)]}
+            </p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                autoFocus
+                onClick={playAgain}
+                className="rounded border border-gold bg-gold/15 px-5 py-2 text-sm text-gold hover:bg-gold/25"
+              >
+                Play again (Enter)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  retryAfterDeath();
+                  takeControl();
+                }}
+                className="rounded border border-white/25 px-5 py-2 text-sm text-muted hover:border-gold hover:text-gold"
+              >
+                Continue this stage (R)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {engine.prog.boss === "dead" && engine.now - engine.prog.bossDiedAt > 4.6 && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-[min(92vw,420px)] rounded border border-gold/60 bg-black/90 p-5 text-center backdrop-blur">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/boss.webp" alt="" className="mx-auto mb-3 h-24 rounded border border-gold/40 opacity-70 grayscale" />
+            <p className="text-3xl font-semibold tracking-[0.3em] text-gold">VICTORY</p>
+            <p className="mt-1 text-sm text-muted">The Grafted King is slain. The valley is safe.</p>
+            <p className="mt-3 text-xs text-muted">
+              Party level {engine.prog.level} · husks {engine.prog.kills.zombie} · raiders {engine.prog.kills.villain}
+            </p>
+            <button
+              type="button"
+              autoFocus
+              onClick={playAgain}
+              className="mt-4 rounded border border-gold bg-gold/15 px-5 py-2 text-sm text-gold hover:bg-gold/25"
+            >
+              Play again (Enter)
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

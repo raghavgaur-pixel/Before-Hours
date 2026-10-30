@@ -460,6 +460,13 @@ export function addXp(n: number) {
   emit();
 }
 
+/** Start the whole game over from level 1. */
+export function restartGame() {
+  resetProgress();
+  showBanner("A NEW NIGHT BEGINS", "Stage 1 · Husks (Lv 1–3)", 4);
+  emit();
+}
+
 export function resetProgress() {
   const pr = engine.prog;
   pr.xp = 0;
@@ -490,6 +497,15 @@ export function resetProgress() {
   engine.selected = MAIN_HERO;
   applyStage();
   pr.banner = null;
+  queue.length = 0;
+  engine.anim = {};
+  engine.p.lock = false;
+  engine.p.target = null;
+  engine.pos.warden.x = WARDEN_XZ[0];
+  engine.pos.warden.z = WARDEN_XZ[1];
+  engine.pos.sentinel.x = SENTINEL_XZ[0];
+  engine.pos.sentinel.z = SENTINEL_XZ[1];
+  engine.log = [];
   say("Progress reset");
   emit();
 }
