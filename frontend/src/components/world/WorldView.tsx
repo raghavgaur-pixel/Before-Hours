@@ -2,11 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  BOSS_LEVEL,
   GESTURES,
   HERO_NAME,
   ITEM_DEFS,
   SPECIALS,
+  TIER_NAME,
   WEAPONS,
+  XP_PER_LEVEL,
+  addXp,
   chargeFrac,
   cooldownLeft,
   currentWeapon,
@@ -18,6 +22,7 @@ import {
   interact,
   parry,
   releaseCharge,
+  resetProgress,
   selectHero,
   selectSkin,
   selectWeapon,
@@ -548,6 +553,35 @@ export function WorldView() {
           ))}
         </ul>
 
+        <div className="absolute left-3 top-[104px] hidden w-[200px] rounded border border-gold/40 bg-black/65 p-2.5 text-xs backdrop-blur sm:block">
+          <p className="flex justify-between">
+            <span className="font-medium text-gold">Party Lv {engine.prog.level}</span>
+            <span className="text-muted">Weapons tier {TIER_NAME[engine.prog.tier]}</span>
+          </p>
+          <div className="mt-1.5">
+            <Bar value={engine.prog.xp} max={XP_PER_LEVEL} color="bg-amber-400" />
+          </div>
+          <p className="mt-1 text-[10px] text-muted">
+            {engine.prog.level >= BOSS_LEVEL
+              ? "The final boss draws near…"
+              : `${XP_PER_LEVEL - engine.prog.xp} XP to Lv ${engine.prog.level + 1} · final boss at Lv ${BOSS_LEVEL}`}
+          </p>
+          <p className="mt-1 text-[10px] text-muted">
+            Kills · husks {engine.prog.kills.zombie} · raiders {engine.prog.kills.villain} · beast {engine.prog.kills.monster}
+          </p>
+        </div>
+
+        {engine.prog.banner && engine.now < engine.prog.banner.until && (
+          <div className="absolute left-1/2 top-24 -translate-x-1/2 rounded border border-gold/60 bg-black/80 px-8 py-3 text-center backdrop-blur">
+            {engine.prog.banner.img && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={engine.prog.banner.img} alt="" className="mx-auto mb-2 h-24 rounded border border-gold/40" />
+            )}
+            <p className="text-2xl font-semibold tracking-widest text-gold">{engine.prog.banner.title}</p>
+            <p className="mt-0.5 text-xs text-muted">{engine.prog.banner.sub}</p>
+          </div>
+        )}
+
         {lockTarget && (
           <p className="absolute left-1/2 top-20 -translate-x-1/2 rounded border border-red-900/70 bg-black/70 px-3 py-1 text-xs text-red-300">
             Locked on · {lockTarget.kind === "monster" ? "Gravemaw" : "Husk"} ({Math.round(lockTarget.hp)}/{lockTarget.maxHp}) · V switch
@@ -804,6 +838,12 @@ export function WorldView() {
                 className="rounded border border-gold/50 px-4 py-2 text-sm text-gold hover:bg-gold/10"
               >
                 {mode === "play" ? "Overview camera" : "Play camera"}
+              </button>
+              <button type="button" onClick={() => addXp(XP_PER_LEVEL)} className="rounded border border-white/20 px-3 py-2 text-xs text-muted hover:border-gold hover:text-gold">
+                Test: +{XP_PER_LEVEL} XP
+              </button>
+              <button type="button" onClick={resetProgress} className="rounded border border-white/20 px-3 py-2 text-xs text-muted hover:border-gold hover:text-gold">
+                Test: reset progress
               </button>
               <label className="flex items-center gap-2 text-xs text-muted">
                 Mouse sensitivity

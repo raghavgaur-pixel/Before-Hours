@@ -237,7 +237,10 @@ export function AshenWarden() {
     b.rotation.set(lean, twist, 0);
     b.scale.y = scaleY;
 
-    if (hand.current) hand.current.rotation.set(0.1 + swing, 0, sideTilt);
+    if (hand.current) {
+      hand.current.rotation.set(0.1 + swing, 0, sideTilt);
+      hand.current.scale.setScalar(1 + 0.12 * (engine.prog.tier - 1));
+    }
     if (armL.current) {
       const wave = C.gest?.kind === "wave" ? Math.sin(t * 10) * 0.3 : 0;
       armL.current.rotation.z = -2.45 * armRaise + wave;
@@ -613,7 +616,10 @@ export function IronSentinel() {
     b.position.set(Math.sin(t * 60) * hit * 0.04, y, z);
     b.rotation.set(lean, twist, 0);
     b.scale.y = scaleY;
-    if (hammer.current) hammer.current.rotation.x = hamAngle + swapSpin;
+    if (hammer.current) {
+      hammer.current.rotation.x = hamAngle + swapSpin;
+      hammer.current.scale.setScalar(1 + 0.12 * (engine.prog.tier - 1));
+    }
     if (shield.current) shield.current.position.z = 0.1 + shieldZ;
     if (muzzle.current) muzzle.current.scale.setScalar(kick * 1.8);
 
