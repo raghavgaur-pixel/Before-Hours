@@ -1,207 +1,515 @@
 # AFTERHOURS
-### A world that never sleeps.
 
-> Build your legacy. Defend it. Shape a world that moves on without you.
+<p align="center">
+  <strong>A WORLD THAT NEVER SLEEPS.</strong>
+  <br />
+  <em>Build your legacy. Defend it. Shape a world that moves on without you.</em>
+</p>
 
-**AFTERHOURS** is a browser-based, asynchronous multiplayer dark-fantasy strategy game. Players explore a shared persistent world, establish settlements, develop characters, collect resources, equip weapons, and fight other players using **swords, guns, and magic**.
-
-The world continues to evolve while players are offline. Your decisions have consequences beyond a single session.
+<p align="center">
+  A browser-based dark-fantasy strategy RPG in development
+  <br />
+  Built by the Before Hours project team · Hacktoberfest 2026
+</p>
 
 ---
 
-## At a glance
+## The game
 
-| | |
+**AFTERHOURS** is a dark-fantasy strategy RPG built around one central idea: the world should not stop just because a player logs out.
+
+Players are meant to establish settlements, manage resources, develop a character, explore a dangerous world, and make decisions that affect a shared multiplayer environment. The game combines the strategic scale of settlement management with the closer, character-driven experience of exploration and combat.
+
+The long-term game is designed around a **persistent, asynchronous multiplayer world**. Players will not need to be online at the same time for the world to progress or for strategic consequences to unfold.
+
+### The pillars of AFTERHOURS
+
+| Pillar | The experience |
 |---|---|
-| Genre | Dark-fantasy strategy, RPG and PvP |
-| Platform | Web browser |
-| Multiplayer | Shared, asynchronous world |
-| World view | Isometric |
-| Combat | Player-versus-player; swords, firearms and magic |
-| Progression | Characters, equipment, settlements and resources |
-| Initial goal | A playable world with character progression and PvP |
+| **Build** | Found and expand a settlement, establish a foothold, and prepare it to survive in a hostile world. |
+| **Manage** | Gather, store, and spend Wood, Stone, Food, and Iron to support your settlement. |
+| **Develop** | Choose a character archetype and grow into a role that suits your playstyle. |
+| **Explore** | Travel through a dark-fantasy world of forests, rivers, mountain passes, hamlets, and dangerous encounters. |
+| **Fight** | Use melee weapons, ranged weapons, magic, defensive techniques, and abilities to survive combat. |
+| **Endure** | The intended world simulation continues while players are away; your decisions should matter beyond a single session. |
+
+**An important design choice:** construction is intended to be instant once its resource cost and placement are validated. There are no construction timers or building queues in the design. The persistent world simulation—not artificial waiting periods—is what makes the world move.
+
+The intended starting resource set is **Wood, Stone, Food, and Iron**. The initial character archetypes are **Warrior, Gunslinger, Arcanist, and Battlemage**.
+
+---
+
+## Current milestone: a playable world prototype
+
+The repository contains a working web application foundation and a substantial, locally simulated 3D gameplay slice. The current build focuses on making the world, characters, and combat tangible.
+
+> **What you can explore in the current build:** a procedural hex-world scene, a third-person combat encounter, two switchable heroes, multiple weapons and abilities, enemy behaviour, civilians reacting to danger, wildlife, environmental details, and account registration/login backed by a Fastify API.
+
+The distinction between the **game vision** and the **current implementation** matters. The 3D encounter is playable as a frontend prototype, but it is not yet the persistent, server-authoritative multiplayer game described above.
+
+## Project status at a glance
+
+| Area | Present in the repository | Current boundary |
+|---|---|---|
+| Frontend and navigation | Next.js application shell, landing page, login and registration screens | Settlement and Chronicle remain placeholders |
+| Player accounts | Registration, login, logout and profile API integration | Account data is separate from the live encounter simulation |
+| 3D world | Procedural 271-tile hex map, terrain, settlement scenery, minimap and environmental details | Map is generated locally and is not a persistent shared world |
+| Combat encounter | Third-person controls, two switchable heroes, six weapons, abilities, stamina, dodging, blocking, parrying and enemy AI | Combat runs locally in the browser; it is not server-authoritative or multiplayer |
+| Living environment | Hostile creatures, villagers, guards, wildlife and contextual interactions | NPC behaviour is part of the local prototype |
+| Backend foundation | Fastify API, Prisma schema, PostgreSQL support and authentication tests | No world, settlement-economy or battle-state APIs yet |
+| Standalone loading/login concept | Root-level HTML, panorama and optional Sketchfab scene files | Separate from the Next.js app and incomplete as committed |
+| Persistent strategy gameplay | Product direction and initial account/resource models are established | Territory, construction, production, offline simulation, PvP and shared-world persistence remain future work |
+
+This distinction is important: the current repository demonstrates a substantial 3D game prototype and an account/backend foundation. It does not yet represent the complete persistent multiplayer game described by the long-term vision.
 
 ## The world
 
-AFTERHOURS is set in a dark-fantasy world of forgotten kingdoms, ruined settlements, dangerous wilderness, ancient magic and scarce resources.
+### A hexagonal overworld
 
-Players enter the same persistent world and build their influence over time. Settlements provide a base of operations, while characters venture into the world, acquire equipment and engage in conflict.
+The current world is generated in the frontend using axial-style hex coordinates and procedural terrain variation.
 
-The visual direction is atmospheric medieval fantasy, with a distinctive isometric world view. The interface should prioritize clarity and readable combat information.
+- **271 hex tiles** arranged in a radius-9 map.
+- Six terrain types: settlement grounds, meadow, farmland, darkwood, ashen peaks, and river.
+- A central settlement with two outlying hamlets.
+- Forests, mountain ranges, a winding river, bridges, and a waterfall.
+- A minimap showing the map and relevant actors.
+- Selectable tiles that can be inspected in overview mode.
+- Terrain-aware movement: mountains and open water block movement, while bridges provide river crossings.
+- Two camera modes: a third-person play camera and an overview camera.
 
-## Core gameplay
+The map is generated by frontend code. It is currently a local prototype rather than a world loaded from, saved to, or synchronised through the backend.
 
-1. **Enter the world** — create an account and establish your presence.
-2. **Develop your settlement** — gather resources and improve your base.
-3. **Build instantly** — when requirements are met and resources are paid, buildings are placed immediately. There are no construction timers, construction queues or construction-progress graphics.
-4. **Develop characters** — improve attributes, unlock abilities and create a combat build.
-5. **Acquire weapons** — choose between melee weapons, firearms and magical weapons or abilities.
-6. **Fight other players** — engage in PvP and compete for influence and resources.
-7. **Return to a changing world** — the shared world continues to progress while you are away.
+### A place that feels inhabited
 
-## Characters
+The environment includes more than terrain and buildings:
 
-Characters are the player's presence in the world and the foundation of combat and progression.
+- A central village and outlying hamlets.
+- A cattle pen, graveyard, well, and bonfire.
+- Forests, dead trees, lanterns, bridges, rocky mountain areas, and a river.
+- An animated waterfall with moving water, foam, spray, and lighting.
+- Ambient particles and environmental effects.
+- Wildlife including cattle, wolves, deer, and crows.
 
-A character system may include:
+### Civilians and hostile creatures
 
-- **Attributes:** health, strength, agility, endurance and intelligence or magical aptitude.
-- **Progression:** experience, levels, attribute growth and unlockable abilities.
-- **Equipment:** weapons, armour and other useful gear.
-- **Abilities:** active skills, passive effects and weapon-specific techniques.
-- **Builds:** players can specialize in a combat style or combine different approaches.
+The settlement has civilians with different roles and routines, including villagers, farmers, guards, washers, shepherds, and children.
 
-### Combat archetypes
+Civilians follow local routes. When danger gets close, non-guard civilians can flee toward hiding places, panic, and cower. Guards are more likely to hold their ground. Undead enemies can hunt civilians and knock them down, making the village feel like an environment that reacts to the encounter rather than a static backdrop.
 
-These are starting archetype concepts, not restrictive classes:
+The current enemy encounter includes:
 
-| Archetype | Style |
-|---|---|
-| Warrior | Close-range combat, swords, durability and physical strength |
-| Gunslinger | Ranged combat, firearms, precision and mobility |
-| Arcanist | Offensive and defensive magic, spells and resource management |
-| Battlemage | A hybrid approach combining weapons and magic |
-
-Players should have room to shape their own builds rather than being permanently locked into one class.
-
-## Weapons and magic
-
-Combat is built around three central weapon families.
-
-| Weapon family | Examples | Gameplay identity |
-|---|---|---|
-| Swords | Longswords, greatswords, daggers | Melee damage, combos, blocks and close-range pressure |
-| Guns | Pistols, rifles, shotguns | Ranged damage, accuracy, reloads and ammunition management |
-| Magic | Elemental spells, arcane attacks, defensive spells | Range, area effects, utility and mana or energy management |
-
-Weapons and abilities can differ through damage, range, attack speed, accuracy, durability, rarity and special effects. Equipment progression should create meaningful choices rather than making every higher-tier weapon a simple replacement.
-
-Magic is a combat discipline in its own right. It can support direct damage, defence, control and utility. Weapon and magic combinations should allow hybrid builds such as a sword-wielding battlemage.
-
-The exact weapon catalogue, statistics, balance and ability list will be defined during implementation and playtesting.
-
-## Player-versus-player combat
-
-PvP is a core part of AFTERHOURS, not an afterthought. Players should be able to test their character builds and equipment against other players in the shared world.
-
-The combat system is intended to support:
-
-- **Player duels:** direct fights between players.
-- **Settlement conflict:** attacks and defence connected to player settlements, subject to agreed protection and balance rules.
-- **Weapon-based combat:** swords, guns and magic each offer distinct strengths, weaknesses and counters.
-- **Character-based outcomes:** attributes, abilities, equipment and player decisions all matter.
-- **Persistent results:** combat outcomes and important events are recorded in the world.
-
-Because the game is asynchronous, combat must not require both players to be online simultaneously. The server will resolve combat using authoritative game rules and persisted character state. The exact attack flow, defensive options, offline protection, losses and rewards must be specified before implementation.
-
-Fairness matters: combat outcomes must be validated by the server, and players must not be able to alter health, damage, inventory or battle results through the browser.
-
-## Settlements and resources
-
-Settlements give players a base from which to gather resources, manage equipment and expand their influence.
-
-The initial resource concepts are:
-
-- **Wood** — basic materials.
-- **Stone** — settlement development.
-- **Food** — supplies and future upkeep systems.
-- **Iron** — equipment and advanced development.
-
-Buildings can provide resource production, storage or other settlement benefits. Building placement is immediate once its requirements are satisfied and its cost is paid. The MVP will not include construction timers, construction queues or construction-progress animations/graphics.
-
-The server determines resource balances, costs, ownership and production. The browser only displays the resulting game state.
-
-## Persistent world and game rules
-
-The world is shared and continues independently of a player's browser session.
-
-Core principles:
-
-- Server time is authoritative; client clocks are never trusted.
-- Player, character, settlement, inventory and combat state are stored persistently.
-- Resource production is calculated from elapsed time and respects storage limits.
-- Building placement and upgrades apply immediately after server-side validation.
-- Combat is resolved by server-side rules, never by client-submitted results.
-- Important actions, PvP outcomes and world changes are recorded.
-- Retried operations must not duplicate rewards, costs or combat outcomes.
-
-The initial implementation should favor a reliable, understandable system over unnecessary infrastructure.
-
-## MVP scope
-
-The first playable release should focus on:
-
-- Account registration, login and player profiles.
-- One shared persistent world with an isometric map.
-- Player settlements and basic resource management.
-- Instant building placement and upgrades; no construction visuals or timers.
-- Characters with attributes, progression and equipment.
-- Swords, guns and magic as the three core combat paths.
-- A server-authoritative PvP foundation.
-- Persistent combat records and a basic activity history.
-- Ownership checks, validation and automated tests.
-
-Large-scale faction warfare, diplomacy, kingdoms, trading markets, extensive PvE, multiple worlds and advanced territory systems can follow after the core experience is stable.
-
-## Proposed technology
-
-The following is the proposed baseline, not a claim that these systems are already implemented.
-
-| Area | Proposed technology |
-|---|---|
-| Frontend | Next.js, TypeScript, Tailwind CSS |
-| Isometric rendering | PixiJS |
-| Backend | Node.js, Fastify |
-| Database | PostgreSQL, Prisma |
-| Live updates | WebSockets where needed |
-| Simulation | Separate Node.js worker |
-| Testing | Vitest and integration/E2E tests |
-| Local development | pnpm workspaces, Docker Compose |
-
-The server and database remain authoritative for all gameplay. Redis, Kubernetes and microservices are not required for the initial version.
-
-## Team and ownership
-
-| Contributor | Responsibility |
-|---|---|
-| Raghav | Project lead: product direction, scope, priorities, acceptance criteria and PR reviews |
-| Chirrayu | Backend: API, authentication, database, persistence and server-side validation |
-| Mohit | Frontend: application structure, interface, map presentation and player-facing screens |
-| Saransh | Testing and frontend: automated tests, integration, regression and UI states |
-| Manan | Game systems: world rules, resources, character/combat mechanics and deterministic simulation |
-
-Cross-team decisions—especially combat rules, data contracts and balance—should be agreed before implementation.
-
-## Contribution workflow
-
-- Work from the existing personal branch assigned to you.
-- Use one long-lived personal branch per contributor; do not create feature branches.
-- Submit pull requests targeting `main`.
-- Keep each PR focused, testable and tied to an agreed requirement.
-- Include screenshots for relevant interface changes and tests for gameplay changes.
-- Do not push directly to `main`.
-- The maintainer reviews and merges contributions.
-
-| Person | Personal branch |
-|---|---|
-| Raghav | `Raghav` (if/when created) |
-| Chirrayu | `chirrayu` |
-| Mohit | `mohit` |
-| Saransh | `Saransh` |
-| Manan | `Manan` |
-
-Do not create or rename branches without maintainer approval. Keep unrelated work out of a PR, and resolve review feedback before merging.
-
-## Project status
-
-**Stage: product definition and foundation.**
-
-This README describes the intended direction. The systems above should not be considered implemented until the corresponding code, tests and review have landed.
-
-The immediate goal is to deliver a persistent dark-fantasy world where players develop characters, choose how to fight, and compete through meaningful PvP.
+- **Gravemaw:** a large hostile creature with movement, attack behaviour, health, hit reactions, and a defeat/respawn sequence.
+- **Husks:** six roaming undead enemies that can hunt civilians, attack nearby heroes, be targeted, take damage, and be defeated.
 
 ---
 
-*AFTERHOURS — The world doesn't wait for you.*
+## Combat
 
-*Built under the Before Hours project.*
+The current combat slice is a third-person, real-time encounter featuring two switchable heroes. These are the showcase encounter characters; they are separate from the four player archetypes planned for character creation and progression.
+
+### The heroes
+
+| Hero | Weapons | Signature ability |
+|---|---|---|
+| **Ashen Warden** | Wraith Blade · Hexstaff · Ashen Longbow | **Soul Rend** |
+| **Iron Sentinel** | Siege Hammer · Ember Cannon · Bulwark Shield | **Earthshatter** |
+
+The weapons cover melee, ranged, and magical attacks. Each weapon has its own damage, cooldown, and attack behaviour. The two signature abilities are powerful attacks with longer cooldowns.
+
+### Combat systems in the prototype
+
+- Direct third-person movement using keyboard controls.
+- Mouse-look camera with pointer lock.
+- Switching between the Ashen Warden and Iron Sentinel.
+- Three weapons available to each hero.
+- Light attacks, heavy attacks, and charged strong attacks.
+- Weapon skills with individual cooldowns.
+- Stamina consumption and regeneration.
+- Blocking and timed parries.
+- Dodge rolls with a brief invulnerability window.
+- Sprinting.
+- Lock-on targeting and target switching.
+- One-handed and two-handed weapon stances. The two-handed stance trades slower recovery for increased damage.
+- Ranged projectiles, spell effects, impact sparks, hit flashes, camera shake, and combat feedback.
+- An optional local auto-battle mode for the heroes.
+
+### Interactions and quick items
+
+The encounter also includes small world interactions:
+
+| Interaction | Current behaviour |
+|---|---|
+| **Bonfire** | Restores the selected hero's health and stamina. |
+| **Well** | Restores some health. |
+| **Cattle pen** | Displays a contextual interaction response. |
+| **Graveyard** | Displays a contextual interaction response. |
+
+The quick-item slots contain:
+
+- **Healing Draught** — restores health.
+- **Ember Flask** — deals fire damage to a target.
+- **Spirit Salve** — temporarily reduces incoming damage.
+
+The UI also includes local inventory, character status, equipment, map, and gesture panels. These are prototype interfaces; their contents are not yet connected to persistent player data.
+
+### Controls
+
+Click **Take Control** inside the world to activate the third-person controls.
+
+| Action | Control |
+|---|---|
+| Move | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> |
+| Look around | Mouse movement |
+| Light attack | Left mouse button |
+| Heavy / charged attack | Hold <kbd>Shift</kbd> + left mouse button |
+| Block / guard | Hold right mouse button |
+| Parry | <kbd>Q</kbd> |
+| Dodge / roll | <kbd>Space</kbd> |
+| Sprint | Hold <kbd>Shift</kbd> while moving |
+| Lock / unlock target | Middle mouse button |
+| Switch target | <kbd>V</kbd> |
+| Weapon skill | <kbd>E</kbd> |
+| Switch weapon | <kbd>1</kbd>, <kbd>2</kbd>, <kbd>3</kbd> |
+| Cycle weapon | <kbd>[</kbd> / <kbd>]</kbd> or Page Up / Page Down |
+| Switch hero | <kbd>X</kbd> |
+| Two-handed stance | <kbd>C</kbd> |
+| Interact | <kbd>F</kbd> |
+| Use quick item | <kbd>R</kbd> |
+| Change quick item | Mouse wheel |
+| Inventory | <kbd>I</kbd> |
+| Character status | <kbd>Tab</kbd> |
+| Equipment | <kbd>K</kbd> |
+| Map | <kbd>M</kbd> |
+| Gestures | <kbd>G</kbd> |
+| Auto-battle | <kbd>T</kbd> |
+| Switch play / overview camera | <kbd>O</kbd> |
+| Pause / settings | <kbd>Esc</kbd> |
+
+### Suggested walkthrough for the current build
+
+1. Start the frontend and backend using the commands below. Open the app at **http://localhost:3000**.
+2. Visit **/register** to try account creation and choose one of the four starting archetypes, or use **/login** to sign in.
+3. Open **/world** and choose **Take Control** to enter third-person play mode.
+4. Move with **W**, **A**, **S**, and **D**; move the mouse to look around. Switch between the Warden and Sentinel with **X**, and cycle the selected hero's weapons with **1–3** or **[ / ]**.
+5. Try the combat loop: attack with left-click, use a heavy or charged attack with **Shift + left-click**, block with right-click, parry with **Q**, dodge with **Space**, and activate the selected weapon's skill with **E**.
+6. Explore the environment with **F** near the bonfire, well, cattle pen, or graveyard. Open the inventory, character, equipment, map, and gestures panels to inspect the supporting interface.
+7. Press **O** to switch between the close third-person camera and map overview. Press **T** to toggle local auto-battle.
+
+The encounter is a frontend simulation. Combat, NPCs, items, and map state are not shared with other players or saved as persistent gameplay progress.
+
+## Application pages
+
+| Route | Purpose | Status |
+|---|---|---|
+| **/** | Landing page and entry point | Implemented |
+| **/register** | Account creation and character-archetype selection | Implemented |
+| **/login** | Sign in with email or username | Implemented |
+| **/world** | Hex-world scene and playable combat encounter | Playable frontend prototype |
+| **/settlement** | Settlement management | Placeholder — coming soon |
+| **/chronicle** | Player history and activity feed | Placeholder — coming soon |
+
+---
+
+## Backend and account system
+
+The backend is a separate **Fastify 5** service written in TypeScript. It provides the current account and authentication foundation.
+
+### Authentication API
+
+All authentication routes are mounted under **/api/auth**.
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| <kbd>POST</kbd> | **/api/auth/register** | Validates input and creates a user, character, and starter settlement. |
+| <kbd>POST</kbd> | **/api/auth/login** | Authenticates with an email address or username and password. |
+| <kbd>POST</kbd> | **/api/auth/logout** | Clears the authentication cookie. |
+| <kbd>GET</kbd> | **/api/auth/me** | Returns the authenticated user's profile. |
+| <kbd>GET</kbd> | **/health** | Backend health check. |
+
+The authentication implementation includes:
+
+- Zod validation for registration and login input.
+- Password hashing with bcrypt.
+- Seven-day JWT sessions.
+- HTTP-only authentication cookies.
+- Bearer-token support on the authenticated profile endpoint.
+- CORS configured for the frontend.
+- An optional Supabase Auth user-sync attempt when the relevant credentials are configured.
+
+### Database model
+
+The current Prisma schema contains three related PostgreSQL models.
+
+| Model | Stored data |
+|---|---|
+| **User** | Email, username, password hash, and timestamps. |
+| **Character** | Name, archetype, level, health, and base attributes such as strength, agility, endurance, and magic. |
+| **Settlement** | Name and starting balances of Wood, Stone, Food, and Iron. |
+
+A new settlement currently starts with **100 Wood, 100 Stone, 100 Food, and 50 Iron**. Character starting attributes are selected based on the chosen archetype.
+
+When **DATABASE_URL** is configured, the service uses Prisma with PostgreSQL. Without it, authentication falls back to an in-memory store for local development and tests. In-memory data is lost when the backend process stops; it is not persistent account storage.
+
+Supabase integration is optional. PostgreSQL through Prisma is the application's current database path.
+
+### Tests
+
+A Vitest suite is included for the authentication API. It covers the health endpoint, registration validation, duplicate accounts, login by email or username, invalid credentials, authenticated profile access, and logout behaviour.
+
+The tests are present in the repository. Run the test command below to verify them in your environment.
+
+---
+
+## How the application fits together
+
+The current architecture keeps the 3D encounter on the client and uses the backend for account operations.
+
+~~~mermaid
+flowchart TD
+    Browser["Browser"]
+    Frontend["Next.js + React frontend"]
+    World["Three.js world and local combat simulation"]
+    AuthUI["Login and registration UI"]
+    API["Fastify API"]
+    Auth["Authentication service"]
+    Prisma["Prisma"]
+    DB[("PostgreSQL")]
+    Supabase["Optional Supabase Auth sync"]
+
+    Browser --> Frontend
+    Frontend --> World
+    Frontend --> AuthUI
+    AuthUI -->|"HTTP + cookie credentials"| API
+    API --> Auth
+    Auth --> Prisma
+    Prisma --> DB
+    Auth -.->|"Optional account sync"| Supabase
+~~~
+
+**Important current boundary:** the world map, player positions, enemies, NPC behaviour, combat state, items, and encounter HUD are frontend simulation state. They are not currently saved to the database or synchronised between multiple players. The backend currently stores accounts, one character, and one starter settlement per user.
+
+---
+
+## Technology stack
+
+| Layer | Technologies |
+|---|---|
+| Frontend framework | Next.js 16, React 19, TypeScript |
+| Styling | Tailwind CSS 4 |
+| 3D engine | Three.js |
+| React 3D integration | React Three Fiber, Drei |
+| Backend runtime and framework | Node.js, Fastify 5, TypeScript |
+| Database | PostgreSQL |
+| ORM | Prisma 6 |
+| Input validation | Zod |
+| Password security | bcryptjs |
+| Sessions | JWT, HTTP-only cookies |
+| Optional identity integration | Supabase JS |
+| Backend tests | Vitest |
+
+---
+
+## Repository layout
+
+~~~text
+Before-Hours/
+├── ability/                         # GLB ability and effect assets
+├── backend/
+│   ├── README.md
+│   └── server/
+│       ├── prisma/                   # Prisma schema
+│       ├── src/
+│       │   ├── config/               # Environment configuration
+│       │   ├── lib/                  # Prisma and Supabase clients
+│       │   ├── modules/auth/         # Auth routes, schemas, controller, service
+│       │   └── plugins/              # Authentication and error handling
+│       └── tests/                    # Authentication API tests
+├── blender/                          # Reserved for Blender source projects
+├── frontend/
+│   ├── public/
+│   └── src/
+│       ├── app/                      # Home, login, register, world, settlement, chronicle
+│       ├── components/
+│       │   ├── auth/                 # Authentication form
+│       │   ├── layout/               # App shell, header, navigation, footer
+│       │   └── world/                # Scene, terrain, characters, enemies, combat
+│       └── lib/                      # Frontend API client
+├── skin/
+│   ├── backup-map/                   # Archived alternate map asset
+│   ├── skin1/                         # Ashen Warden model and textures
+│   └── skin2/                         # Stoneguard model and textures
+├── NitroGen                          # Git submodule pointer
+├── bg-login.png                      # Asset for standalone visual experiment
+├── bg.js                             # Procedural pixel-art panorama experiment
+├── controls.txt                      # Keyboard and mouse control reference
+├── index.html                        # Standalone loading/login page experiment
+├── scene.js                          # Loading screen and optional 3D-scene controller
+├── package.json                      # Root development scripts
+├── pnpm-workspace.yaml
+└── README.md
+~~~
+
+### Standalone loading/login-page experiment
+
+The repository root also contains **index.html**, **bg.js**, **scene.js**, and **bg-login.png**. These files form a separate **Before Hours** splash/login-page experiment; they are not part of the Next.js application under **frontend/** and are not the active authentication flow described above.
+
+The experiment is incomplete in the current commit: **index.html** references **style.css** and **app.js**, but neither file is present in the repository. The procedural panorama in **bg.js** is also not loaded by the current **index.html**. Treat this as an unfinished standalone concept, not as a working alternate frontend. Its optional Sketchfab scene references **“Plaza Night Time” by patrix**, credited in the page markup under **CC BY-SA 4.0**.
+
+### 3D asset notes
+
+The repository includes four GLB assets under **ability/**, character models and textures under **skin/skin1/** and **skin/skin2/**, and an archived textured-map ZIP plus a texture reference under **skin/backup-map/**. The backup map is not the source of the current procedural hex world.
+
+The current Warden, Sentinel, monsters, villagers, and much of the environment are built from procedural Three.js geometry and animation. The committed GLB files are project assets, but a complete in-game model/equipment loading pipeline is not yet integrated. The **blender/** directory is currently a placeholder and does not contain tracked **.blend** source projects.
+
+A root-level **NitroGen** entry is present as a Git submodule pointer, but the repository currently has no **.gitmodules** file or URL for it. A fresh clone therefore cannot initialise that dependency from this repository alone; its source location needs to be documented before contributors can retrieve it.
+
+---
+
+## What is implemented, and what is still ahead?
+
+| System | Current state |
+|---|---|
+| Next.js application shell and navigation | Implemented |
+| Registration and login UI | Implemented |
+| Fastify authentication API | Implemented |
+| PostgreSQL account, character, and settlement schema | Implemented |
+| Procedural hex-world prototype | Implemented in frontend |
+| Third-person player controls | Implemented in frontend |
+| Local combat encounter and enemy behaviour | Implemented in frontend |
+| Civilians, wildlife, and environmental activity | Implemented in frontend |
+| Settlement management gameplay | Not implemented yet |
+| Functional resource production and economy | Not implemented yet |
+| Instant building placement with validated costs | Design decision; gameplay implementation pending |
+| Persistent world and tile data | Not implemented yet |
+| Offline world simulation | Not implemented yet |
+| Persistent character progression and inventory | Not implemented yet |
+| Multiplayer world synchronisation | Not implemented yet |
+| Server-authoritative PvP and battle resolution | Not implemented yet |
+| Functional Chronicle and activity history | Not implemented yet |
+
+The resource values shown in the current world HUD—such as Gold, Grain, Population, and Army—are placeholder presentation values. They are not a functioning economy and are not the project's agreed starting resource model. The backend settlement model currently uses Wood, Stone, Food, and Iron.
+
+The current battle is also a local frontend prototype. It demonstrates movement, weapons, abilities, enemies, and encounter behaviour; it does not yet implement persistent battles, player-versus-player combat, or server-side validation of combat outcomes.
+
+### The next major systems
+
+The larger development work ahead is to connect the visual prototype to the persistent game:
+
+1. **World persistence:** define worlds, tiles, player ownership, shared state, and player presence in the backend.
+2. **Settlement gameplay:** connect the settlement interface to real stored data, resource costs, placement validation, and instant construction.
+3. **Economy and simulation:** implement production, storage, resource deposits, transactions, and offline progression.
+4. **Character systems:** persist progression, attributes, equipment, inventory, weapons, and abilities.
+5. **Multiplayer:** introduce shared world state, server-authoritative combat, asynchronous battle resolution, PvP rules, and battle records.
+6. **Chronicle:** record important player and world events in a functional activity history.
+7. **Release readiness:** expand automated coverage, add deployment configuration, and harden production authentication and gameplay services.
+
+---
+
+## Run the project locally
+
+### Requirements
+
+- Node.js 20.9+
+- npm
+- PostgreSQL for persistent account storage
+
+### 1. Clone the repository
+
+~~~bash
+git clone https://github.com/raghavgaur-pixel/Before-Hours.git
+cd Before-Hours
+~~~
+
+### 2. Install dependencies
+
+~~~bash
+npm --prefix frontend install
+npm --prefix backend/server install
+~~~
+
+### 3. Configure the backend
+
+Create **backend/server/.env**. There is currently no tracked **.env.example** file.
+
+~~~env
+PORT=4000
+HOST=0.0.0.0
+NODE_ENV=development
+JWT_SECRET=replace-this-with-a-long-random-secret
+CORS_ORIGIN=http://localhost:3000
+
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE
+DIRECT_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE
+
+# Optional Supabase Auth integration
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+~~~
+
+For a quick local run without PostgreSQL, leave the database variables unset and use the in-memory authentication fallback. Accounts created in this mode will not survive a backend restart.
+
+For PostgreSQL-backed storage, configure both database URLs, then generate the Prisma client and push the schema:
+
+~~~bash
+npm --prefix backend/server run prisma:generate
+npm --prefix backend/server run prisma:push
+~~~
+
+Use a strong, private **JWT_SECRET** outside local development. Never commit environment files or credentials.
+
+### 4. Configure the frontend
+
+Create **frontend/.env.local**:
+
+~~~env
+NEXT_PUBLIC_API_URL=http://localhost:4000
+~~~
+
+### 5. Start the services
+
+Start the backend and frontend in separate terminals from the repository root.
+
+Backend:
+
+~~~bash
+npm run dev:server
+~~~
+
+Frontend:
+
+~~~bash
+npm run dev:web
+~~~
+
+The frontend is normally available at **http://localhost:3000**. The backend listens on **http://localhost:4000** by default.
+
+### Root scripts
+
+| Command | Purpose |
+|---|---|
+| **npm run dev:web** | Start the Next.js frontend. |
+| **npm run dev:server** | Start the Fastify backend in watch mode. |
+| **npm run build:web** | Build the frontend. |
+| **npm run build:server** | Compile the backend TypeScript. |
+| **npm run test:server** | Run the backend Vitest suite. |
+
+---
+
+## Development workflow
+
+- **test** is the default integration branch. Contributor pull requests should target **test**.
+- Contributors work from their existing personal branches; the project does not create a new branch for every feature.
+- Review and verify changes on **test** before treating them as part of the integrated build.
+- **main** is reserved for accepted milestone and presentation checkpoints. The maintainer promotes an approved **test** snapshot to **main**.
+- Keep pull requests focused and include screenshots, recordings, or test evidence when relevant.
+
+---
+
+<p align="center">
+  <strong>AFTERHOURS</strong>
+  <br />
+  <em>The world doesn't wait for you.</em>
+  <br /><br />
+  <sub>Built by the Before Hours project team · Hacktoberfest 2026</sub>
+</p>

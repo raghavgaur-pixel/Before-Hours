@@ -1,109 +1,215 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { AuthError, login, register, validate, type Session } from "@/lib/auth";
+import { useState, type FormEvent } from "react";
+import { login, register } from "@/lib/api";
 
-type Mode = "login" | "register";
+type AuthFormProps = {
+  mode: "login" | "register";
+};
 
-/** Sign in / create account. The username becomes your character's name. */
-export function AuthForm({ onDone }: { onDone?: (s: Session) => void }) {
+const archetypes = [
+  { value: "warrior", label: "Warrior", description: "Durable and strong" },
+  {
+    value: "gunslinger",
+    label: "Gunslinger",
+    description: "Fast and precise",
+  },
+  { value: "arcanist", label: "Arcanist", description: "Master of magic" },
+  {
+    value: "battlemage",
+    label: "Battlemage",
+    description: "Steel and spellcraft",
+  },
+] as const;
+
+export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("login");
+  const isRegister = mode === "register";
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
+  const [loginIdentifier, setLoginIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [show, setShow] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [archetype, setArchetype] = useState<
+    (typeof archetypes)[number]["value"]
+  >("warrior");
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const problem = validate(mode, { email, username, password });
-    if (problem) return setError(problem);
-    setBusy(true);
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setError(null);
-    try {
-      const s = mode === "register" ? await register({ email, username, password }) : await login({ login: username, password });
-      onDone?.(s);
-      router.push("/world");
-    } catch (err) {
-      setError(err instanceof AuthError ? err.message : "Could not reach the server. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
+    setIsSubmitting(true);
 
-  const input =
-    "w-full rounded border border-white/15 bg-black/50 px-3 py-2.5 text-sm text-foreground placeholder:text-muted/70 outline-none transition-colors focus:border-gold/70";
+    try {
+      if (isRegister) {
+        await register({ email, username, password, archetype });
+      } else {
+        await login({ login: loginIdentifier, password });
+      }
+      router.replace("/world");
+    } catch (submissionError) {
+      setError(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Unable to complete authentication.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
-    <form onSubmit={submit} className="space-y-3" noValidate>
-      <div role="tablist" className="grid grid-cols-2 rounded border border-white/10 p-1 text-sm">
-        {(["login", "register"] as Mode[]).map((m) => (
-          <button
-            key={m}
-            type="button"
-            role="tab"
-            aria-selected={mode === m}
-            onClick={() => {
-              setMode(m);
-              setError(null);
-            }}
-            className={`rounded py-1.5 transition-colors ${mode === m ? "bg-gold/15 text-gold" : "text-muted hover:text-foreground"}`}
-          >
-            {m === "login" ? "Sign in" : "Create account"}
-          </button>
-        ))}
+    <section className="mx-auto w-full max-w-md py-8 sm:py-14">
+      <div className="mb-8">
+        <p className="mb-3 text-sm uppercase tracking-[0.3em] text-accent">
+          {isRegister ? "Begin your chronicle" : "Return to the world"}
+        </p>
+        <h1 className="text-3xl font-semibold text-gold sm:text-4xl">
+          {isRegister ? "Create your account" : "Welcome back"}
+        </h1>
+        <p className="mt-3 text-muted">
+          {isRegister
+            ? "Found a settlement and leave a mark on the world."
+            : "The world kept moving while you were away."}
+        </p>
       </div>
 
-      {mode === "register" && (
-        <label className="block text-xs text-muted">
-          Email
-          <input className={`${input} mt-1`} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-        </label>
-      )}
-      <label className="block text-xs text-muted">
-        {mode === "register" ? "Username · your character's name" : "Username or email"}
-        <input
-          className={`${input} mt-1`}
-          autoComplete="username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder={mode === "register" ? "e.g. Mohit" : "Your username"}
-          maxLength={mode === "register" ? 20 : 80}
-        />
-      </label>
-      <label className="block text-xs text-muted">
-        Password
-        <span className="relative mt-1 block">
-          <input
-            className={`${input} pr-14`}
-            type={show ? "text" : "password"}
-            autoComplete={mode === "register" ? "new-password" : "current-password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={mode === "register" ? "At least 8 characters" : "Your password"}
-          />
-          <button type="button" onClick={() => setShow((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-muted hover:text-gold">
-            {show ? "Hide" : "Show"}
-          </button>
-        </span>
-      </label>
-
-      {error && (
-        <p role="alert" className="rounded border border-red-900/70 bg-red-950/40 px-3 py-2 text-xs text-red-300">
-          {error}
-        </p>
-      )}
-
-      <button
-        type="submit"
-        disabled={busy}
-        className="w-full rounded border border-gold bg-gold/15 py-2.5 text-sm font-medium tracking-widest text-gold transition-colors hover:bg-gold/25 disabled:opacity-60"
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-5 rounded border border-border bg-surface p-5 sm:p-6"
+        aria-describedby={error ? "auth-error" : undefined}
       >
-        {busy ? "…" : mode === "login" ? "ENTER THE NIGHT" : "FORGE YOUR LEGEND"}
-      </button>
-    </form>
+        {isRegister ? (
+          <>
+            <div>
+              <label htmlFor="email" className="mb-2 block text-sm text-foreground">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className="w-full rounded border border-border bg-background px-3 py-2.5 text-foreground placeholder:text-muted"
+                placeholder="you@example.com"
+              />
+            </div>
+            <div>
+              <label htmlFor="username" className="mb-2 block text-sm text-foreground">
+                Username
+              </label>
+              <input
+                id="username"
+                type="text"
+                autoComplete="username"
+                required
+                minLength={3}
+                maxLength={20}
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                className="w-full rounded border border-border bg-background px-3 py-2.5 text-foreground placeholder:text-muted"
+                placeholder="shadowblade"
+              />
+            </div>
+          </>
+        ) : (
+          <div>
+            <label htmlFor="login" className="mb-2 block text-sm text-foreground">
+              Email or username
+            </label>
+            <input
+              id="login"
+              type="text"
+              autoComplete="username"
+              required
+              value={loginIdentifier}
+              onChange={(event) => setLoginIdentifier(event.target.value)}
+              className="w-full rounded border border-border bg-background px-3 py-2.5 text-foreground placeholder:text-muted"
+              placeholder="you@example.com"
+            />
+          </div>
+        )}
+
+        <div>
+          <label htmlFor="password" className="mb-2 block text-sm text-foreground">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            autoComplete={isRegister ? "new-password" : "current-password"}
+            required
+            minLength={isRegister ? 8 : 1}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="w-full rounded border border-border bg-background px-3 py-2.5 text-foreground placeholder:text-muted"
+            placeholder={isRegister ? "At least 8 characters" : "Your password"}
+          />
+        </div>
+
+        {isRegister && (
+          <fieldset>
+            <legend className="mb-2 text-sm text-foreground">Choose an archetype</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {archetypes.map((option) => (
+                <label
+                  key={option.value}
+                  className={`cursor-pointer rounded border p-3 transition-colors ${
+                    archetype === option.value
+                      ? "border-accent bg-surface-raised"
+                      : "border-border hover:border-muted"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="archetype"
+                    value={option.value}
+                    checked={archetype === option.value}
+                    onChange={() => setArchetype(option.value)}
+                    className="sr-only"
+                  />
+                  <span className="block text-sm text-foreground">{option.label}</span>
+                  <span className="mt-1 block text-xs text-muted">{option.description}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
+        {error && (
+          <p id="auth-error" role="alert" className="rounded border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full rounded bg-accent px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSubmitting
+            ? isRegister
+              ? "Creating account..."
+              : "Signing in..."
+            : isRegister
+              ? "Create account"
+              : "Sign in"}
+        </button>
+      </form>
+
+      <p className="mt-5 text-center text-sm text-muted">
+        {isRegister ? "Already have an account? " : "New to AFTERHOURS? "}
+        <Link
+          href={isRegister ? "/login" : "/register"}
+          className="text-accent underline-offset-4 hover:underline"
+        >
+          {isRegister ? "Sign in" : "Create an account"}
+        </Link>
+      </p>
+    </section>
   );
 }
