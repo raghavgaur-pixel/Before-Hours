@@ -12,6 +12,8 @@ import { Bonfire, DeadTree, Graveyard, Lantern, Well } from "./DarkVillage";
 import { CIVILIANS, Civilian } from "./Civilians";
 import { Effect } from "./effects";
 import { Monster } from "./Monster";
+import { Waterfall } from "./Waterfall";
+import { Zombies } from "./Zombies";
 import { engine, tick } from "./battleEngine";
 import { LockReticle } from "./LockReticle";
 import { PlayerDriver, PlayerRig } from "./playerControl";
@@ -260,9 +262,15 @@ function CameraRig({ focusKey }: { focusKey: number }) {
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
   useEffect(() => {
-    if (focusKey === 0 || !controls) return;
-    controls.target.set(BATTLE.x + 0.3, 0.5, BATTLE.z);
-    camera.position.set(BATTLE.x + 2.2, 3.4, BATTLE.z + 5.2);
+    if (!controls) return;
+    if (focusKey === 0) {
+      // Entering overview: back to the wide shot of the whole valley.
+      controls.target.set(0, 0, -0.9);
+      camera.position.set(0, 17, 13.2);
+    } else {
+      controls.target.set(BATTLE.x + 0.3, 0.5, BATTLE.z);
+      camera.position.set(BATTLE.x + 2.2, 3.4, BATTLE.z + 5.2);
+    }
     controls.update();
   }, [focusKey, camera, controls]);
   return null;
@@ -343,6 +351,8 @@ export function WorldScene({
           ),
       )}
 
+      <Zombies />
+      <Waterfall />
       <AshenWarden />
       <IronSentinel />
       <Monster />
@@ -357,7 +367,7 @@ export function WorldScene({
       <Effect name="hitSpark" />
 
       {CIVILIANS.map((c, i) => (
-        <Civilian key={i} {...c} phase={i * 3.1} />
+        <Civilian key={i} id={i} {...c} phase={i * 3.1} />
       ))}
 
       <Bonfire x={BATTLE.x - 1.9} z={BATTLE.z + 1.0} />

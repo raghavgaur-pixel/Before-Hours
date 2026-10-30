@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { INTERACTABLES, MONSTER_XZ, SENTINEL_XZ, WARDEN_XZ, groundAt } from "./terrain";
+import { GRAVEYARD, INTERACTABLES, MONSTER_XZ, SENTINEL_XZ, WARDEN_XZ, groundAt } from "./terrain";
 
 export type HeroId = "warden" | "sentinel";
 /** A hero id, or an enemy id ("monster", "z0", ...). */
@@ -88,6 +88,21 @@ export type Enemy = {
 export type HeroPos = { x: number; z: number; y: number; yaw: number; speed: number };
 
 const MAX_HP = { warden: 120, sentinel: 160 };
+
+/** Where husks rise: a loose ring around the graveyard. */
+export const zombieSpawn = (i: number): [number, number] => [
+  GRAVEYARD.x + Math.cos(i * 1.05 + 0.4) * 1.5,
+  GRAVEYARD.z + Math.sin(i * 1.05 + 0.4) * 1.3,
+];
+export const ZOMBIE_COUNT = 6;
+
+const zombies = Object.fromEntries(
+  Array.from({ length: ZOMBIE_COUNT }, (_, i) => {
+    const [x, z] = zombieSpawn(i);
+    const id = `z${i}`;
+    return [id, { id, kind: "zombie", x, z, hp: 45, maxHp: 45, alive: true, stunUntil: 0, chestY: 0.5, reach: 0.8, radius: 0.3 } as Enemy];
+  }),
+);
 export const ROLL_DUR = 0.55;
 const yawTo = (ax: number, az: number, bx: number, bz: number) => Math.atan2(bx - ax, bz - az);
 
@@ -104,7 +119,10 @@ export const engine = {
   } as Record<HeroId, HeroPos>,
   enemies: {
     monster: { id: "monster", kind: "monster", x: MONSTER_XZ[0], z: MONSTER_XZ[1], hp: 320, maxHp: 320, alive: true, stunUntil: 0, chestY: 1.1, reach: 3.2, radius: 0.9 },
+    ...zombies,
   } as Record<string, Enemy>,
+  /** Civilian positions, written by each villager every frame so husks can hunt them. */
+  civs: [] as { x: number; z: number; downUntil: number }[],
   alive: true,
   auto: false,
   paused: false,
@@ -627,14 +645,27 @@ export function tick(t: number, dt: number) {
     }
   }
 
-  // Auto-battle: heroes pick the next ready ability themselves.
+  // Auto-battle: heroes pick the next ready ability that can reach their target.
   if (engine.auto && t >= engine.nextAuto && liveEnemies().length) {
     engine.nextAuto = t + 0.5;
     for (const hero of ["warden", "sentinel"] as HeroId[]) {
       if (busy(hero)) continue;
-      if (cooldownLeft(`${hero}-special`) <= 0 && Math.random() < 0.4) heroAct(hero, "skill");
+      const tgt = pickTarget(hero);
+      if (!tgt) continue;
+      const d = distTo(hero, tgt);
+      if (d > 9) continue;
+      const me = engine.pos[hero];
+      // Close the gap on melee targets.
+      if (d > 3.4) {
+        const step = Math.min(d - 3.0, 1.2 * dt);
+        me.x += ((tgt.x - me.x) / d) * step;
+        me.z += ((tgt.z - me.z) / d) * step;
+        me.yaw = yawTo(me.x, me.z, tgt.x, tgt.z);
+      }
+      const reachable = (w: Weapon) => (isMelee(w.id) ? d <= 3.6 : true);
+      if (cooldownLeft(`${hero}-special`) <= 0 && d <= 3.6 && Math.random() < 0.4) heroAct(hero, "skill");
       else {
-        const ready = WEAPONS[hero].filter((w) => cooldownLeft(w.id) <= 0);
+        const ready = WEAPONS[hero].filter((w) => cooldownLeft(w.id) <= 0 && reachable(w));
         if (ready.length) {
           engine.weapon[hero] = ready[Math.floor(Math.random() * ready.length)].id;
           heroAct(hero);

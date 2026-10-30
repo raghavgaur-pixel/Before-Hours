@@ -86,7 +86,7 @@ export function generateTiles(radius = MAP_RADIUS): Tile[] {
       if (ring <= 1) terrain = "village";
       else if (q === -1 && r === 3) terrain = "farm";
       else if (isRiver && ring < radius) terrain = "water";
-      else if (ring >= radius - 2 || (ring >= radius - 3 && n > 0.4) || n > 0.7) terrain = "mountain";
+      else if (ring >= radius - 1 || (ring >= radius - 2 && n > 0.34) || (ring >= radius - 3 && n > 0.52) || n > 0.76) terrain = "mountain";
       else if (n > 0.36) terrain = "forest";
 
       const base = TERRAIN_HEIGHT[terrain];
