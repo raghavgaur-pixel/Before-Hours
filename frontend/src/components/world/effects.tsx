@@ -3,6 +3,8 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef, type ComponentType } from "react";
 import type { Group } from "three";
+import { engine, specialHit } from "./battleEngine";
+import { CastOrb, HitStar, SpecialBurst } from "./effectModels";
 import { actorPoint, heroPoint, targetPoint } from "./Projectiles";
 
 /**
@@ -16,7 +18,8 @@ import { actorPoint, heroPoint, targetPoint } from "./Projectiles";
  *   sentinelMuzzle – at the Sentinel's cannon muzzle
  *   shellImpact    – on the Sentinel's current target, where the shell lands
  *   monsterRoar    – at the monster's head
- *   hitSpark       – on the monster's chest
+ *   hitSpark       – on whatever was hit last
+ *   specialBurst   – on the target of a landing special attack
  */
 export type EffectName =
   | "wardenCast"
@@ -24,11 +27,17 @@ export type EffectName =
   | "sentinelMuzzle"
   | "shellImpact"
   | "monsterRoar"
-  | "hitSpark";
+  | "hitSpark"
+  | "specialBurst";
 
 export type EffectProps = { position: [number, number, number] };
 
-export const effectRegistry: Partial<Record<EffectName, ComponentType<EffectProps>>> = {};
+/** Effects that ship with the game, built from the models in Skin_Display/ability. Add more here. */
+export const effectRegistry: Partial<Record<EffectName, ComponentType<EffectProps>>> = {
+  wardenCast: CastOrb,
+  hitSpark: HitStar,
+  specialBurst: SpecialBurst,
+};
 
 const anchor = (name: EffectName): [number, number, number] => {
   switch (name) {
@@ -44,8 +53,14 @@ const anchor = (name: EffectName): [number, number, number] => {
       const p = actorPoint("monster");
       return [p[0], p[1] + 0.65, p[2]];
     }
-    default:
-      return actorPoint("monster");
+    case "specialBurst": {
+      const s = specialHit();
+      return s ? targetPoint(s.hero) : [0, -20, 0];
+    }
+    default: {
+      const imp = engine.impacts[engine.impacts.length - 1];
+      return actorPoint(imp ? imp.target : "monster");
+    }
   }
 };
 

@@ -194,7 +194,8 @@ export function Civilian({
 
     const ground = groundAt(s.x, s.z);
     const gait = Math.sin(t * (mode === "run" ? 15 : 7));
-    g.position.set(s.x, ground + (mode === "run" ? Math.abs(gait) * 0.04 : mode === "walk" ? Math.abs(gait) * 0.012 : 0), s.z);
+    const cheer = engine.now < engine.victoryUntil && mode === "idle" ? Math.abs(Math.sin(t * 6)) * 0.05 : 0;
+    g.position.set(s.x, ground + cheer + (mode === "run" ? Math.abs(gait) * 0.04 : mode === "walk" ? Math.abs(gait) * 0.012 : 0), s.z);
     g.rotation.y = s.yaw;
 
     const l = lean.current;
@@ -210,6 +211,10 @@ export function Civilian({
       } else if (mode === "cower") {
         armL.current.rotation.set(-0.5, 0, -2.5);
         armR.current.rotation.set(-0.5, 0, 2.5);
+      } else if (engine.now < engine.victoryUntil) {
+        // The beast is dead: cheering.
+        armL.current.rotation.set(-0.3, 0, -2.7 + Math.sin(t * 9) * 0.25);
+        armR.current.rotation.set(-0.3, 0, 2.7 - Math.sin(t * 9) * 0.25);
       } else if (brave && engine.panic > 0.55) {
         armL.current.rotation.set(-1.2, 0, 0);
         armR.current.rotation.set(-1.2, 0, 0);
