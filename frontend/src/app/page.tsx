@@ -16,7 +16,7 @@ export default function Home() {
       </p>
       <div>
         <Link
-          href="/settlement"
+          href="/world"
           className="inline-block rounded bg-accent px-5 py-2.5 text-sm font-medium text-background hover:opacity-90"
         >
           Enter the world

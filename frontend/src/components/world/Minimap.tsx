@@ -1,0 +1,62 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { HEX_SIZE, TILES, Terrain, Tile } from "./terrain";
+
+const COLOR: Record<Terrain, string> = {
+  village: "#d6a24b",
+  grass: "#4a6a34",
+  farm: "#8a7a2c",
+  forest: "#25402b",
+  mountain: "#4a4f58",
+  water: "#1f7a82",
+};
+
+const W = 190;
+const H = 130;
+
+export function Minimap({ selected }: { selected: Tile | null }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const ctx = ref.current?.getContext("2d");
+    if (!ctx) return;
+    const maxX = Math.max(...TILES.map((t) => Math.abs(t.x))) + HEX_SIZE;
+    const maxZ = Math.max(...TILES.map((t) => Math.abs(t.z))) + HEX_SIZE;
+    const k = Math.min((W / 2 - 4) / maxX, (H / 2 - 4) / maxZ);
+    const rad = HEX_SIZE * k * 1.02;
+
+    ctx.clearRect(0, 0, W, H);
+    const hex = (cx: number, cy: number, stroke?: string) => {
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI / 3) * i + Math.PI / 6;
+        const px = cx + Math.cos(a) * rad;
+        const py = cy + Math.sin(a) * rad;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      if (stroke) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      } else ctx.fill();
+    };
+    for (const t of TILES) {
+      ctx.fillStyle = COLOR[t.terrain];
+      hex(W / 2 + t.x * k, H / 2 + t.z * k);
+    }
+    if (selected) hex(W / 2 + selected.x * k, H / 2 + selected.z * k, "#f3d98b");
+  }, [selected]);
+
+  return (
+    <canvas
+      ref={ref}
+      width={W}
+      height={H}
+      aria-label="World minimap"
+      className="rounded border border-gold/40 bg-black/60"
+    />
+  );
+}
